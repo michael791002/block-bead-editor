@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>積木拼豆編輯器 v13</title>
+<style>
+  :root{
+    --app-bg:#f5f7fa;
+    --panel:#ffffff;
+    --panel-2:#f8fafc;
+    --line:#d8dee8;
+    --text:#1f2937;
+    --muted:#6b7280;
+    --accent:#0f766e;
+    --accent2:#e6fffb;
+    --danger:#b91c1c;
+    --button:#ffffff;
+    --button-hover:#f8fafc;
+    --input:#ffffff;
+    --canvas-bg:#ffffff;
+    --grid-major:#cbd5e1;
+    --grid-minor:#eef2f7;
+    --shadow:0 8px 24px rgba(15,23,42,.08);
+  }
+  body[data-theme="dark"]{
+    --app-bg:#0b0b0b;
+    --panel:#15191f;
+    --panel-2:#1b2028;
+    --line:#343a45;
+    --text:#edf2f7;
+    --muted:#9aa4b2;
+    --accent:#14b8a6;
+    --accent2:#123b39;
+    --danger:#ff6b6b;
+    --button:#1b2028;
+    --button-hover:#242b35;
+    --input:#11151a;
+    --canvas-bg:#12161c;
+    --grid-major:#46505e;
+    --grid-minor:#272e38;
+    --shadow:0 8px 28px rgba(0,0,0,.34);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,"Noto Sans TC","Microsoft JhengHei",sans-serif;background:var(--app-bg);color:var(--text)}
+  button,input,select{font:inherit}
+  button{cursor:pointer}
+  .app{height:100vh;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+  .topbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line);box-shadow:0 2px 12px rgba(15,23,42,.04);z-index:5}
+  .brand{font-weight:800;margin-right:8px;white-space:nowrap}
+  .group{display:flex;gap:6px;align-items:center;padding-right:10px;border-right:1px solid var(--line);flex-wrap:wrap}
+  .group:last-child{border-right:0}
+  button,.btn{border:1px solid var(--line);background:var(--button);border-radius:8px;padding:7px 10px;color:var(--text)}
+  button:hover:not(:disabled){background:var(--button-hover)}
+  button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.danger{color:var(--danger)}
+  button:disabled{opacity:.34;cursor:not-allowed;filter:saturate(.4)}
+  input[type="number"]{width:64px;border:1px solid var(--line);border-radius:7px;padding:6px 8px;background:var(--input);color:var(--text)}
+  input[type="color"]{background:var(--input)}
+  select{border:1px solid var(--line);border-radius:7px;padding:6px 8px;background:var(--input);color:var(--text)}
+  label{white-space:nowrap}
+  .main{display:grid;grid-template-columns:260px 1fr;min-height:0}
+  .sidebar{background:var(--panel);border-right:1px solid var(--line);padding:14px;overflow:auto}
+  .section{margin-bottom:18px}
+  .section h3{font-size:14px;margin:0 0 8px}
+  .hint{font-size:12px;color:var(--muted);line-height:1.5}
+  .palette{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .swatch{aspect-ratio:1;border-radius:9px;border:2px solid rgba(127,127,127,.24);position:relative;padding:0}
+  .swatch.selected::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#fff;text-shadow:0 1px 2px #000;font-weight:800}
+  .color-row{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .color-row input[type="color"]{width:44px;height:36px;border:1px solid var(--line);border-radius:8px;padding:2px}
+  .recent-colors-wrap{margin-top:12px}
+  .recent-colors-title{font-size:12px;color:var(--muted);margin:0 0 7px;font-weight:700}
+  .recent-palette{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .recent-palette:empty{display:none}
+  .stats{display:grid;gap:6px}
+  .stat-row{display:flex;justify-content:space-between;gap:12px;font-size:13px}
+  .workspace{position:relative;overflow:auto;padding:30px;background-color:var(--app-bg);background-image:linear-gradient(45deg,color-mix(in srgb,var(--app-bg) 88%,white) 25%,transparent 25%),linear-gradient(-45deg,color-mix(in srgb,var(--app-bg) 88%,white) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,color-mix(in srgb,var(--app-bg) 88%,white) 75%),linear-gradient(-45deg,transparent 75%,color-mix(in srgb,var(--app-bg) 88%,white) 75%);background-size:24px 24px;background-position:0 0,0 12px,12px -12px,-12px 0}
+  body[data-theme="dark"] .workspace{background-image:linear-gradient(45deg,color-mix(in srgb,var(--app-bg) 92%,white) 25%,transparent 25%),linear-gradient(-45deg,color-mix(in srgb,var(--app-bg) 92%,white) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,color-mix(in srgb,var(--app-bg) 92%,white) 75%),linear-gradient(-45deg,transparent 75%,color-mix(in srgb,var(--app-bg) 92%,white) 75%)}
+  .stage-wrap{position:relative;margin:auto;width:max-content;height:max-content;box-shadow:var(--shadow);background:var(--canvas-bg)}
+  canvas{display:block;touch-action:none;user-select:none}
+  .statusbar{display:flex;justify-content:space-between;gap:14px;padding:7px 12px;background:var(--panel);border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+  .file-input{display:none}
+  .selection-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+  .selection-head h3{margin:0}
+  .selection-state{font-size:11px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:3px 7px}
+  .selection-state.ready{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 55%,var(--line));background:var(--accent2)}
+  .selection-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .selection-actions button{padding:6px}
+  .badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;background:var(--panel-2);padding:4px 8px;font-size:12px;color:var(--muted)}
+  .compact-color{width:34px;height:32px;border:1px solid var(--line);border-radius:7px;padding:2px;vertical-align:middle}
+
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.48);display:none;align-items:center;justify-content:center;padding:20px;z-index:30}
+  .modal-backdrop.open{display:flex}
+  .modal{width:min(520px,100%);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 22px 60px rgba(0,0,0,.3)}
+  .modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .modal-header h2{font-size:17px;margin:0}
+  .icon-btn{width:34px;height:34px;padding:0;display:grid;place-items:center}
+  .modal-body{padding:16px;display:grid;gap:14px}
+  .form-row{display:grid;grid-template-columns:145px 1fr;gap:12px;align-items:center}
+  .form-row select,.form-row input[type="number"]{width:100%}
+  .check-row{display:flex;align-items:center;gap:9px}
+  .modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:14px 16px;border-top:1px solid var(--line)}
+  .primary{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
+  .hidden{display:none!important}
+  @media (max-width:1100px){.group{border-right:0;padding-right:0}.topbar{gap:7px}}
+  @media (max-width:900px){.main{grid-template-columns:1fr}.sidebar{display:none}}
+  @media (max-width:560px){.form-row{grid-template-columns:1fr;gap:5px}.statusbar{flex-direction:column;gap:3px}}
+
+  /* v3 responsive toolbar + mobile side panels */
+  .topbar{display:block;padding:8px 12px}
+  .topbar-primary,.topbar-more{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .topbar-primary{min-height:42px}
+  .topbar-more{margin-top:7px;padding-top:7px;border-top:1px solid var(--line)}
+  .topbar-more-toggle{display:none;margin-left:auto}
+  .topbar .group{padding-right:8px}
+  .mobile-panel-tabs{display:none}
+  .legend-option{padding-left:26px}
+  .export-preview-note{font-size:12px;color:var(--muted);line-height:1.45}
+
+  @media (max-width:900px){
+    .app{grid-template-rows:auto 1fr auto}
+    .topbar{padding:7px 8px}
+    .topbar-primary{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center}
+    .brand{grid-column:1/2;margin:0;overflow:hidden;text-overflow:ellipsis}
+    .topbar-more-toggle{display:inline-flex;grid-column:3/4;grid-row:1;align-items:center;justify-content:center;white-space:nowrap}
+    .group-history{grid-column:2/3;grid-row:1;border:0;padding:0;flex-wrap:nowrap}
+    .group-history button{padding:6px 8px}
+    .group-tools{grid-column:1/-1;display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;border:0!important;padding:0!important}
+    .group-tools button{min-width:0;padding:7px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .topbar-more{display:none;margin-top:6px;padding:7px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px}
+    .topbar-more.open{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+    .topbar-more .group{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px;min-width:0}
+    .group-canvas,.group-files,.group-settings{grid-column:1/-1}
+    .group-canvas{display:grid!important;grid-template-columns:1fr 1fr auto;gap:6px}
+    .group-canvas label{display:grid;grid-template-columns:auto 1fr;gap:4px;align-items:center;min-width:0}
+    .group-canvas input[type="number"]{width:100%;min-width:0}
+    .group-view{display:grid!important;grid-template-columns:1fr 1fr;gap:6px}
+    .group-view label{display:grid;grid-template-columns:auto 1fr;gap:4px;align-items:center;min-width:0}
+    .group-view select{width:100%;min-width:0}
+    .group-files{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    .group-files button{min-width:0;padding:7px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .group-settings{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;align-items:end}
+    .group-settings label{display:grid;gap:3px;min-width:0;font-size:12px}
+    .group-settings select{width:100%;min-width:0}
+
+    .main{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+    .sidebar{display:block!important;border-right:0;border-bottom:1px solid var(--line);padding:6px 8px 7px;overflow:hidden;max-height:190px}
+    .mobile-panel-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:5px}
+    .mobile-panel-tabs button{padding:5px 8px;font-size:12px;line-height:1.2}
+    .mobile-panel-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    .sidebar .panel-section{display:none;margin:0;min-width:0}
+    .sidebar .panel-section h3{display:none}
+    .sidebar .panel-section.mobile-active{display:block}
+    .sidebar .panel-section[data-panel="colors"].mobile-active{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:7px;row-gap:7px;align-items:start}
+    .palette{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px;overflow:visible;padding:0;min-width:0}
+    .palette::-webkit-scrollbar,.recent-palette::-webkit-scrollbar,.selection-actions::-webkit-scrollbar,.stats::-webkit-scrollbar{display:none}
+    .recent-colors-wrap{grid-column:1/-1;margin:0;min-width:0;height:auto;overflow:visible}
+    .recent-colors-title{display:block;font-size:11px;margin:0 0 4px}
+    .recent-palette{display:flex;gap:4px;flex-wrap:wrap;overflow:visible;padding:0;min-width:0;height:auto;align-items:center}
+    .recent-palette .swatch{flex:0 0 28px;width:28px;height:28px;border-radius:6px}
+    .swatch{width:100%;height:auto;aspect-ratio:1;border-radius:7px;min-height:30px}
+    .color-row{margin:0;gap:5px;flex-wrap:nowrap;align-self:start}
+    .color-row input[type="color"]{width:38px;height:38px}
+    .color-row button{padding:7px 8px;white-space:nowrap;font-size:12px}
+    .sidebar .panel-section[data-panel="selection"].mobile-active{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px;align-items:center}
+    .selection-head{margin:0;min-width:92px}
+    .selection-head h3{display:none}
+    .selection-state{white-space:nowrap}
+    .selection-actions{display:flex;gap:5px;overflow-x:auto;overflow-y:hidden;padding-bottom:3px;scrollbar-width:thin}
+    .selection-actions button{flex:0 0 auto;min-width:68px;font-size:12px;padding:6px 8px}
+    .sidebar .panel-section[data-panel="stats"].mobile-active{display:block}
+    .stats{display:flex;gap:7px;overflow-x:auto;overflow-y:hidden;max-height:none;padding:2px 0 4px;scrollbar-width:thin}
+    .stat-row{flex:0 0 auto;gap:7px;border:1px solid var(--line);border-radius:7px;padding:5px 8px;background:var(--panel-2)}
+    .workspace{padding:14px;min-height:0}
+  }
+
+  @media (max-width:560px){
+    .topbar-primary{grid-template-columns:1fr auto}
+    .group-history{grid-column:1/2;grid-row:3;justify-self:start}
+    .topbar-more-toggle{grid-column:2/3;grid-row:1}
+    .group-tools{grid-row:2}
+    .topbar-more.open{grid-template-columns:1fr}
+    .group-canvas,.group-view,.group-files,.group-settings{grid-column:1}
+    .group-settings{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .sidebar{max-height:180px;padding:5px 6px 6px}
+    .sidebar .panel-section[data-panel="colors"].mobile-active{grid-template-rows:auto auto;row-gap:6px}
+    .palette{grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
+    .swatch{width:100%;height:auto;min-height:28px}
+    .recent-colors-wrap{height:auto}
+    .recent-palette{height:auto;gap:4px}
+    .recent-palette .swatch{flex:0 0 24px;width:24px;height:24px;border-radius:5px;min-height:24px}
+    .color-row input[type="color"]{width:34px;height:34px}
+    .color-row button{padding:6px 7px}
+    .workspace{padding:10px}
+  }
+
+</style>
+</head>
+<body data-theme="light">
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-primary">
+      <div class="brand"><span data-i18n="appName">積木拼豆編輯器</span> <span class="badge" id="versionBadge">v11</span></div>
+      <div class="group group-tools" id="toolGroup">
+        <button data-tool="draw" class="active" data-i18n="toolDraw">✏️ 上色</button>
+        <button data-tool="erase" data-i18n="toolErase">🧽 擦除</button>
+        <button data-tool="fill" data-i18n="toolFill">🪣 填滿</button>
+        <button data-tool="pick" data-i18n="toolPick">🎯 吸色</button>
+        <button data-tool="select" data-i18n="toolSelect">⬚ 框選</button>
+      </div>
+      <div class="group group-history">
+        <button id="undoBtn">↶ Undo</button>
+        <button id="redoBtn">↷ Redo</button>
+      </div>
+      <button id="moreToolsBtn" class="topbar-more-toggle"><span data-i18n="moreTools">其他設定</span> ▾</button>
+    </div>
+
+    <div id="topbarMore" class="topbar-more">
+      <div class="group group-canvas">
+        <label><span data-i18n="width">寬</span> <input id="canvasW" type="number" min="4" max="100" value="30"></label>
+        <label><span data-i18n="height">高</span> <input id="canvasH" type="number" min="4" max="100" value="30"></label>
+        <button id="newBtn" data-i18n="createCanvas">建立畫布</button>
+      </div>
+      <div class="group group-view">
+        <label><span data-i18n="snap">吸附</span>
+          <select id="snapMode">
+            <option value="half" data-i18n="snapHalf">半格</option>
+            <option value="whole" selected data-i18n="snapWhole">整格</option>
+          </select>
+        </label>
+        <label><span data-i18n="zoom">縮放</span>
+          <select id="zoomMode">
+            <option value="16" data-i18n="zoomSmall">小</option>
+            <option value="24" selected data-i18n="zoomMedium">中</option>
+            <option value="32" data-i18n="zoomLarge">大</option>
+          </select>
+        </label>
+      </div>
+      <div class="group group-files">
+        <button id="saveJsonBtn" data-i18n="exportJson">💾 匯出 JSON</button>
+        <button id="loadJsonBtn" data-i18n="loadJson">📂 載入 JSON</button>
+        <input id="jsonFile" class="file-input" type="file" accept="application/json,.json">
+        <button id="exportPngBtn" data-i18n="exportPng">🖼️ 匯出 PNG</button>
+      </div>
+      <div class="group group-settings">
+        <label><span data-i18n="theme">主題</span>
+          <select id="themeMode">
+            <option value="light" data-i18n="themeLight">淺色</option>
+            <option value="dark" data-i18n="themeDark">暗色</option>
+          </select>
+        </label>
+        <label><span data-i18n="language">語言</span>
+          <select id="languageMode">
+            <option value="zh-Hant">繁中</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <aside class="sidebar">
+      <div class="mobile-panel-tabs" id="mobilePanelTabs">
+        <button class="active" data-mobile-panel="colors" data-i18n="colors">顏色</button>
+        <button data-mobile-panel="selection" data-i18n="selectionActions">框選操作</button>
+        <button data-mobile-panel="stats" data-i18n="statistics">統計</button>
+      </div>
+      <div class="section panel-section mobile-active" data-panel="colors">
+        <h3 data-i18n="colors">顏色</h3>
+        <div id="palette" class="palette"></div>
+        <div class="color-row">
+          <input id="customColor" type="color" value="#ef4444">
+          <button id="useCustomColor" data-i18n="useCustom">使用自訂色</button>
+        </div>
+        <div id="recentColorsWrap" class="recent-colors-wrap hidden">
+          <div class="recent-colors-title" data-i18n="recentColors">最近使用</div>
+          <div id="recentPalette" class="recent-palette"></div>
+        </div>
+      </div>
+
+      <div class="section panel-section" data-panel="selection">
+        <div class="selection-head">
+          <h3 data-i18n="selectionActions">框選操作</h3>
+          <span id="selectionState" class="selection-state" data-i18n="notSelected">尚未選取</span>
+        </div>
+        <div class="selection-actions">
+          <button id="moveLeft">← 0.5</button>
+          <button id="moveUp">↑ 0.5</button>
+          <button id="moveRight">0.5 →</button>
+          <button id="moveDown">↓ 0.5</button>
+          <button id="copySel" data-i18n="copy">複製</button>
+          <button id="deleteSel" class="danger" data-i18n="delete">刪除</button>
+          <button id="flipH" data-i18n="flipH">水平翻轉</button>
+          <button id="flipV" data-i18n="flipV">垂直翻轉</button>
+          <button id="clearSel" data-i18n="clearSelection">取消選取</button>
+        </div>
+      </div>
+
+      <div class="section panel-section" data-panel="stats">
+        <h3 data-i18n="statistics">統計</h3>
+        <div id="stats" class="stats"></div>
+      </div>
+    </aside>
+
+    <section class="workspace" id="workspace">
+      <div class="stage-wrap"><canvas id="board"></canvas></div>
+    </section>
+  </main>
+
+  <footer class="statusbar">
+    <div id="statusLeft" data-i18n="ready">就緒</div>
+    <div id="statusRight"></div>
+  </footer>
+</div>
+
+<div id="exportModal" class="modal-backdrop" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 data-i18n="exportSettings">圖片輸出設定</h2>
+      <button id="closeExportModal" class="icon-btn" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label for="exportRange" data-i18n="exportRange">輸出範圍</label>
+        <select id="exportRange">
+          <option value="content" selected data-i18n="rangeContent">自動裁切到拼豆內容</option>
+          <option value="canvas" data-i18n="rangeCanvas">完整畫布</option>
+        </select>
+      </div>
+      <div class="form-row" id="paddingRow">
+        <label for="exportPadding" data-i18n="padding">外圍留白</label>
+        <select id="exportPadding">
+          <option value="0">0</option>
+          <option value="0.5">0.5</option>
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="exportBackground" data-i18n="background">背景</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="exportBackground" style="flex:1">
+            <option value="transparent" selected data-i18n="bgTransparent">透明</option>
+            <option value="white" data-i18n="bgWhite">白色</option>
+            <option value="black" data-i18n="bgBlack">黑色</option>
+            <option value="custom" data-i18n="bgCustom">自訂</option>
+          </select>
+          <input id="exportBgColor" class="compact-color hidden" type="color" value="#202020">
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="exportScale" data-i18n="resolution">輸出倍率</label>
+        <select id="exportScale">
+          <option value="1">1×</option>
+          <option value="2" selected>2×</option>
+          <option value="4">4×</option>
+        </select>
+      </div>
+      <div class="check-row">
+        <input id="exportGrid" type="checkbox">
+        <label for="exportGrid" data-i18n="showGrid">顯示格線</label>
+      </div>
+      <div class="check-row">
+        <input id="exportBeadEffect" type="checkbox" checked>
+        <label for="exportBeadEffect" data-i18n="beadEffect">顯示拼豆立體效果</label>
+      </div>
+      <div class="check-row">
+        <input id="exportLegend" type="checkbox">
+        <label for="exportLegend" data-i18n="showLegend">列出使用顏色與顆數</label>
+      </div>
+      <div class="form-row hidden" id="legendPositionRow">
+        <label for="exportLegendPosition" data-i18n="legendPosition">清單位置</label>
+        <select id="exportLegendPosition">
+          <option value="auto" selected data-i18n="legendAuto">自動判斷</option>
+          <option value="left" data-i18n="legendLeft">左側</option>
+          <option value="right" data-i18n="legendRight">右側</option>
+          <option value="bottom" data-i18n="legendBottom">下方</option>
+        </select>
+      </div>
+      <div class="check-row hidden" id="legendColorCodeRow">
+        <input id="exportLegendColorCode" type="checkbox">
+        <label for="exportLegendColorCode" data-i18n="showColorCode">顯示色碼</label>
+      </div>
+      <div id="legendHint" class="export-preview-note hidden" data-i18n="legendHint">自動模式會依拼豆圖比例選擇右側或下方，讓成品盡量不要變得過窄或過高。</div>
+      <div class="hint" data-i18n="cropHint">「自動裁切」會依最外圍拼豆決定圖片大小，不受原本 30×30 等畫布尺寸影響。</div>
+    </div>
+    <div class="modal-footer">
+      <button id="cancelExport" data-i18n="cancel">取消</button>
+      <button id="confirmExport" class="primary" data-i18n="exportImage">匯出圖片</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const APP_VERSION = 13;
+  const canvas = $('board');
+  const ctx = canvas.getContext('2d');
+
+  const I18N = {
+    'zh-Hant': {
+      appName:'積木拼豆編輯器', width:'寬', height:'高', createCanvas:'建立畫布',
+      toolDraw:'✏️ 上色', toolErase:'🧽 擦除', toolFill:'🪣 填滿', toolPick:'🎯 吸色', toolSelect:'⬚ 框選',
+      snap:'吸附', snapHalf:'半格', snapWhole:'整格', zoom:'縮放', zoomSmall:'小', zoomMedium:'中', zoomLarge:'大',
+      exportJson:'💾 匯出 JSON', loadJson:'📂 載入 JSON', exportPng:'🖼️ 匯出 PNG',
+      theme:'主題', themeLight:'淺色', themeDark:'暗色', language:'語言', moreTools:'其他設定',
+      colors:'顏色', useCustom:'使用自訂色', recentColors:'最近使用', selectionActions:'框選操作', notSelected:'尚未選取', selectedCount:'已選取 {n} 顆',
+      copy:'複製', delete:'刪除', flipH:'水平翻轉', flipV:'垂直翻轉', clearSelection:'取消選取', statistics:'統計',
+      ready:'就緒', position:'位置：{x}, {y}', totalStats:'{n} 顆拼豆 / {c} 種顏色', noBeads:'目前還沒有拼豆。',
+      exportSettings:'圖片輸出設定', exportRange:'輸出範圍', rangeContent:'自動裁切到拼豆內容', rangeCanvas:'完整畫布',
+      padding:'外圍留白', background:'背景', bgTransparent:'透明', bgWhite:'白色', bgBlack:'黑色', bgCustom:'自訂',
+      resolution:'輸出倍率', showGrid:'顯示格線', beadEffect:'顯示拼豆立體效果', showLegend:'列出使用顏色與顆數', showColorCode:'顯示色碼', legendPosition:'清單位置', legendAuto:'自動判斷', legendLeft:'左側', legendRight:'右側', legendBottom:'下方', legendHint:'自動模式會依拼豆圖比例選擇右側或下方，讓成品盡量不要變得過窄或過高。',
+      cropHint:'「自動裁切」會依最外圍拼豆決定圖片大小，不受原本 30×30 等畫布尺寸影響。',
+      cancel:'取消', exportImage:'匯出圖片', newConfirm:'建立新畫布會清除目前內容，確定嗎？',
+      outOfBounds:'移動後會超出畫布', overlapMove:'移動位置與其他拼豆重疊', overlapFlip:'翻轉後會與其他拼豆重疊',
+      noCopySpace:'附近沒有足夠空間可放置複製內容', jsonLoaded:'JSON 載入完成', jsonLoadFail:'無法載入 JSON：{msg}',
+      noBeadsExport:'目前沒有拼豆可以輸出。', fillTooLarge:'這次填滿會新增 {n} 顆拼豆，是否繼續？'
+    },
+    en: {
+      appName:'Block Bead Editor', width:'W', height:'H', createCanvas:'New Canvas',
+      toolDraw:'✏️ Draw', toolErase:'🧽 Erase', toolFill:'🪣 Fill', toolPick:'🎯 Pick', toolSelect:'⬚ Select',
+      snap:'Snap', snapHalf:'Half', snapWhole:'Whole', zoom:'Zoom', zoomSmall:'Small', zoomMedium:'Medium', zoomLarge:'Large',
+      exportJson:'💾 Export JSON', loadJson:'📂 Load JSON', exportPng:'🖼️ Export PNG',
+      theme:'Theme', themeLight:'Light', themeDark:'Dark', language:'Language', moreTools:'More',
+      colors:'Colors', useCustom:'Use custom', recentColors:'Recent colors', selectionActions:'Selection', notSelected:'No selection', selectedCount:'{n} selected',
+      copy:'Copy', delete:'Delete', flipH:'Flip H', flipV:'Flip V', clearSelection:'Clear', statistics:'Statistics',
+      ready:'Ready', position:'Position: {x}, {y}', totalStats:'{n} beads / {c} colors', noBeads:'No beads yet.',
+      exportSettings:'Image Export', exportRange:'Range', rangeContent:'Crop to bead content', rangeCanvas:'Full canvas',
+      padding:'Padding', background:'Background', bgTransparent:'Transparent', bgWhite:'White', bgBlack:'Black', bgCustom:'Custom',
+      resolution:'Scale', showGrid:'Show grid', beadEffect:'Bead depth effect', showLegend:'List used colors and counts', showColorCode:'Show color codes', legendPosition:'List position', legendAuto:'Auto', legendLeft:'Left', legendRight:'Right', legendBottom:'Bottom', legendHint:'Auto places the list on the right or bottom based on the artwork aspect ratio to keep the exported image balanced.',
+      cropHint:'“Crop to bead content” sizes the image from the outermost beads, independent of the original canvas size.',
+      cancel:'Cancel', exportImage:'Export Image', newConfirm:'Creating a new canvas will clear the current project. Continue?',
+      outOfBounds:'Move would go outside the canvas', overlapMove:'Move would overlap other beads', overlapFlip:'Flip would overlap other beads',
+      noCopySpace:'No nearby free space for the copied selection', jsonLoaded:'JSON loaded', jsonLoadFail:'Cannot load JSON: {msg}',
+      noBeadsExport:'There are no beads to export.', fillTooLarge:'This fill will add {n} beads. Continue?'
+    }
+  };
+
+  const SHORTCUT_TEXT = {
+    'zh-Hant': {
+      draw:'快捷鍵：D', erase:'快捷鍵：E', fill:'快捷鍵：F', pick:'快捷鍵：I', select:'快捷鍵：S',
+      snap:'快捷鍵：1 = 整格、2 = 半格',
+      left:'快捷鍵：←（Shift+← = 1 格）', up:'快捷鍵：↑（Shift+↑ = 1 格）',
+      right:'快捷鍵：→（Shift+→ = 1 格）', down:'快捷鍵：↓（Shift+↓ = 1 格）',
+      copy:'快捷鍵：Ctrl+D', del:'快捷鍵：Delete', flipH:'快捷鍵：H', flipV:'快捷鍵：V', clear:'快捷鍵：Esc'
+    },
+    en: {
+      draw:'Shortcut: D', erase:'Shortcut: E', fill:'Shortcut: F', pick:'Shortcut: I', select:'Shortcut: S',
+      snap:'Shortcuts: 1 = Whole, 2 = Half',
+      left:'Shortcut: ← (Shift+← = 1 bead)', up:'Shortcut: ↑ (Shift+↑ = 1 bead)',
+      right:'Shortcut: → (Shift+→ = 1 bead)', down:'Shortcut: ↓ (Shift+↓ = 1 bead)',
+      copy:'Shortcut: Ctrl+D', del:'Shortcut: Delete', flipH:'Shortcut: H', flipV:'Shortcut: V', clear:'Shortcut: Esc'
+    }
+  };
+
+  function applyShortcutTitles(){
+    const t=SHORTCUT_TEXT[state.language]||SHORTCUT_TEXT['zh-Hant'];
+    const toolTitles={draw:t.draw,erase:t.erase,fill:t.fill,pick:t.pick,select:t.select};
+    document.querySelectorAll('[data-tool]').forEach(btn=>{btn.title=toolTitles[btn.dataset.tool]||''});
+    $('snapMode').title=t.snap;
+    $('moveLeft').title=t.left; $('moveUp').title=t.up; $('moveRight').title=t.right; $('moveDown').title=t.down;
+    $('copySel').title=t.copy; $('deleteSel').title=t.del; $('flipH').title=t.flipH; $('flipV').title=t.flipV; $('clearSel').title=t.clear;
+  }
+
+  function isTypingTarget(target){
+    if(!target) return false;
+    const tag=(target.tagName||'').toLowerCase();
+    return tag==='input'||tag==='textarea'||tag==='select'||target.isContentEditable;
+  }
+
+  const DEFAULT_PALETTE = [
+    '#111827','#ffffff','#9ca3af','#ef4444','#f97316',
+    '#facc15','#22c55e','#14b8a6','#0ea5e9','#2563eb',
+    '#7c3aed','#ec4899','#92400e','#f5d0a9','#d1fae5'
+  ];
+
+  const state = {
+    version:11, width:30, height:30, beadPx:24, tool:'draw', snap:'whole', color:'#ef4444',
+    beads:[], nextId:1, undo:[], redo:[], pointerDown:false, dragChanged:false, rightErase:false,
+    selection:null, selectionIds:new Set(), selectStart:null, hover:null, isSelecting:false,
+    selectionDragging:false, dragStartSnap:null, dragDelta:{x:0,y:0}, dragValid:true,
+    language:localStorage.getItem('beadEditorLanguage') || 'zh-Hant',
+    theme:localStorage.getItem('beadEditorTheme') || 'light',
+    recentColors:[]
+  };
+
+  function t(key, vars={}){
+    let s=(I18N[state.language]||I18N['zh-Hant'])[key] || key;
+    for(const [k,v] of Object.entries(vars)) s=s.replaceAll(`{${k}}`,v);
+    return s;
+  }
+
+  function applyLanguage(){
+    document.documentElement.lang=state.language;
+    document.title=`${(I18N[state.language]||I18N['zh-Hant']).appName} v${APP_VERSION}`;
+    document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.dataset.i18n; if(I18N[state.language]?.[k]) el.textContent=I18N[state.language][k]; });
+    $('languageMode').value=state.language;
+    syncSelectionActions(); updateStats();
+    if(!$('statusLeft').dataset.locked) $('statusLeft').textContent=t('ready');
+    localStorage.setItem('beadEditorLanguage',state.language);
+  }
+
+  function applyTheme(){
+    document.body.dataset.theme=state.theme;
+    $('themeMode').value=state.theme;
+    localStorage.setItem('beadEditorTheme',state.theme);
+    render();
+  }
+
+  function cloneBeads(){ return state.beads.map(b=>({...b})); }
+  function pushHistory(){
+    state.undo.push(cloneBeads());
+    if(state.undo.length>100) state.undo.shift();
+    state.redo=[]; syncHistoryButtons();
+  }
+  function syncHistoryButtons(){ $('undoBtn').disabled=!state.undo.length; $('redoBtn').disabled=!state.redo.length; }
+  function applyHistory(targetStack,otherStack){
+    if(!targetStack.length)return;
+    otherStack.push(cloneBeads()); state.beads=targetStack.pop();
+    state.selection=null; state.selectionIds.clear(); state.isSelecting=false;
+    render(); updateStats(); syncHistoryButtons(); syncSelectionActions();
+  }
+
+  function clearSelection(){
+    state.selection=null;
+    state.selectionIds.clear();
+    state.selectStart=null;
+    state.isSelecting=false;
+    state.selectionDragging=false; state.dragStartSnap=null; state.dragDelta={x:0,y:0}; state.dragValid=true;
+    canvas.style.cursor='';
+    syncSelectionActions();
+  }
+
+  function syncSelectionActions(){
+    const enabled=state.selectionIds.size>0 && !state.isSelecting;
+    document.querySelectorAll('.selection-actions button').forEach(b=>b.disabled=!enabled);
+    const tag=$('selectionState');
+    tag.classList.toggle('ready',enabled);
+    tag.textContent=enabled?t('selectedCount',{n:state.selectionIds.size}):t('notSelected');
+  }
+
+  function boardPxW(){return state.width*state.beadPx}
+  function boardPxH(){return state.height*state.beadPx}
+  function halfPx(){return state.beadPx/2}
+
+  function resizeCanvas(){
+    const dpr=Math.max(1,window.devicePixelRatio||1), cssW=boardPxW(), cssH=boardPxH();
+    canvas.style.width=cssW+'px'; canvas.style.height=cssH+'px';
+    canvas.width=Math.round(cssW*dpr); canvas.height=Math.round(cssH*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0); render();
+  }
+
+  function cssVar(name){ return getComputedStyle(document.body).getPropertyValue(name).trim(); }
+
+  function drawGrid(c,startHX,startHY,endHX,endHY,hp,exporting){
+    c.save();
+    const major=exporting?'rgba(100,116,139,.48)':(cssVar('--grid-major')||'#cbd5e1');
+    const minor=exporting?'rgba(148,163,184,.25)':(cssVar('--grid-minor')||'#eef2f7');
+    const left=0, top=0, w=(endHX-startHX)*hp, h=(endHY-startHY)*hp;
+    const firstX=Math.ceil(startHX), firstY=Math.ceil(startHY);
+    for(let i=firstX;i<=endHX;i++){
+      const x=(i-startHX)*hp; c.beginPath(); c.moveTo(x,top); c.lineTo(x,h);
+      c.strokeStyle=i%2===0?major:minor; c.lineWidth=i%2===0?1:.7; c.stroke();
+    }
+    for(let i=firstY;i<=endHY;i++){
+      const y=(i-startHY)*hp; c.beginPath(); c.moveTo(left,y); c.lineTo(w,y);
+      c.strokeStyle=i%2===0?major:minor; c.lineWidth=i%2===0?1:.7; c.stroke();
+    }
+    c.restore();
+  }
+
+  function paintBead(c,bx,by,s,color,effect=true,inset=1){
+    c.save(); c.fillStyle=color;
+    roundedRect(c,bx+inset,by+inset,s-inset*2,s-inset*2,effect?Math.max(2,s*.12):0); c.fill();
+    if(effect){
+      c.strokeStyle='rgba(15,23,42,.20)'; c.lineWidth=1; c.stroke();
+      c.fillStyle='rgba(255,255,255,.16)'; roundedRect(c,bx+inset+2,by+inset+2,s-inset*2-4,Math.max(2,s*.16),2); c.fill();
+    }
+    c.restore();
+  }
+
+  function roundedRect(c,x,y,w,h,r){
+    if(r<=0){c.beginPath();c.rect(x,y,w,h);return;}
+    r=Math.min(r,w/2,h/2); c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+    c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+  }
+
+  function renderBeads(c,offsetHX=0,offsetHY=0,hp=halfPx(),beadSize=state.beadPx,effect=true){
+    for(const b of state.beads){
+      const dx=(state.selectionDragging&&state.selectionIds.has(b.id))?state.dragDelta.x:0;
+      const dy=(state.selectionDragging&&state.selectionIds.has(b.id))?state.dragDelta.y:0;
+      paintBead(c,(b.x+dx-offsetHX)*hp,(b.y+dy-offsetHY)*hp,beadSize,b.color,effect,effect?1:0);
+    }
+  }
+
+  function render(){
+    const w=boardPxW(),h=boardPxH(); ctx.clearRect(0,0,w,h);
+    ctx.fillStyle=cssVar('--canvas-bg')||'#fff'; ctx.fillRect(0,0,w,h);
+    drawGrid(ctx,0,0,state.width*2,state.height*2,halfPx(),false);
+    renderBeads(ctx,0,0,halfPx(),state.beadPx,true);
+    drawSelection(); drawHover();
+  }
+
+  function drawHover(){
+    if(!state.hover||state.tool==='select'||state.tool==='fill'||state.tool==='pick')return;
+    const {x,y,valid}=state.hover; ctx.save(); ctx.globalAlpha=.35;
+    ctx.fillStyle=(state.tool==='erase'||state.rightErase)?'#ef4444':(valid?state.color:'#ef4444');
+    ctx.fillRect(x*halfPx()+1,y*halfPx()+1,state.beadPx-2,state.beadPx-2); ctx.restore();
+  }
+
+  function drawSelection(){
+    if(!state.selection)return;
+    const hp=halfPx(),s=state.selection,dx=state.selectionDragging?state.dragDelta.x:0,dy=state.selectionDragging?state.dragDelta.y:0;
+    const x=(Math.min(s.x1,s.x2)+dx)*hp,y=(Math.min(s.y1,s.y2)+dy)*hp;
+    const w=Math.abs(s.x2-s.x1)*hp,h=Math.abs(s.y2-s.y1)*hp;
+    ctx.save(); ctx.strokeStyle=state.selectionDragging&&!state.dragValid?'#ef4444':(cssVar('--accent')||'#0f766e'); ctx.lineWidth=2; ctx.setLineDash([7,5]); ctx.strokeRect(x,y,w,h); ctx.restore();
+    if(state.selectionIds.size){ ctx.save(); ctx.strokeStyle=state.selectionDragging&&!state.dragValid?'#ef4444':(cssVar('--accent')||'#0f766e');ctx.lineWidth=2;
+      for(const b of state.beads)if(state.selectionIds.has(b.id))ctx.strokeRect((b.x+dx)*hp+1,(b.y+dy)*hp+1,state.beadPx-2,state.beadPx-2); ctx.restore(); }
+  }
+
+  // Grid-boundary snapping used by selection.
+  function mouseToHalfCoord(ev){
+    const rect=canvas.getBoundingClientRect(); let hx=(ev.clientX-rect.left)/halfPx(),hy=(ev.clientY-rect.top)/halfPx();
+    if(state.snap==='whole'){hx=Math.round(hx/2)*2;hy=Math.round(hy/2)*2}else{hx=Math.round(hx);hy=Math.round(hy)}
+    hx=Math.max(0,Math.min(state.width*2-2,hx)); hy=Math.max(0,Math.min(state.height*2-2,hy)); return{x:hx,y:hy};
+  }
+
+  function mouseToRawHalfCoord(ev){
+    const rect=canvas.getBoundingClientRect();
+    return {x:(ev.clientX-rect.left)/halfPx(), y:(ev.clientY-rect.top)/halfPx()};
+  }
+
+  function pointInsideSelection(ev){
+    if(!state.selection||!state.selectionIds.size)return false;
+    const p=mouseToRawHalfCoord(ev),s=state.selection;
+    const minX=Math.min(s.x1,s.x2),maxX=Math.max(s.x1,s.x2),minY=Math.min(s.y1,s.y2),maxY=Math.max(s.y1,s.y2);
+    return p.x>=minX&&p.x<=maxX&&p.y>=minY&&p.y<=maxY;
+  }
+
+  function validateSelectionDrag(dx,dy){
+    const arr=state.beads.filter(b=>state.selectionIds.has(b.id));
+    if(arr.some(b=>b.x+dx<0||b.y+dy<0||b.x+dx>state.width*2-2||b.y+dy>state.height*2-2))return false;
+    return !arr.some(b=>overlaps(b.x+dx,b.y+dy,state.selectionIds));
+  }
+
+  // Drawing/fill snapping: convert the pointer to the bead's TOP-LEFT coordinate
+  // while treating the pointer as being over the bead centre. This prevents
+  // whole-grid mode from jumping one bead to the right/down.
+  function mouseToBeadCoord(ev){
+    const rect=canvas.getBoundingClientRect();
+    const rawHX=(ev.clientX-rect.left)/halfPx();
+    const rawHY=(ev.clientY-rect.top)/halfPx();
+    let hx,hy;
+    if(state.snap==='whole'){
+      hx=Math.round((rawHX-1)/2)*2;
+      hy=Math.round((rawHY-1)/2)*2;
+    }else{
+      hx=Math.round(rawHX-1);
+      hy=Math.round(rawHY-1);
+    }
+    hx=Math.max(0,Math.min(state.width*2-2,hx));
+    hy=Math.max(0,Math.min(state.height*2-2,hy));
+    return{x:hx,y:hy};
+  }
+
+  function beadAtPointPx(ev){
+    const rect=canvas.getBoundingClientRect(),px=ev.clientX-rect.left,py=ev.clientY-rect.top;
+    for(let i=state.beads.length-1;i>=0;i--){const b=state.beads[i],bx=b.x*halfPx(),by=b.y*halfPx();if(px>=bx&&px<bx+state.beadPx&&py>=by&&py<by+state.beadPx)return b}return null;
+  }
+
+  function overlaps(x,y,ignoreIds=new Set()){return state.beads.some(b=>!ignoreIds.has(b.id)&&Math.abs(b.x-x)<2&&Math.abs(b.y-y)<2)}
+  function setBeadAt(x,y,color){
+    const exact=state.beads.find(b=>b.x===x&&b.y===y); if(exact){if(exact.color!==color){exact.color=color;return true}return false}
+    if(overlaps(x,y))return false; state.beads.push({id:state.nextId++,x,y,color});return true;
+  }
+  function eraseAtEvent(ev){const b=beadAtPointPx(ev);if(!b)return false;state.beads=state.beads.filter(x=>x.id!==b.id);state.selectionIds.delete(b.id);return true}
+
+  canvas.addEventListener('contextmenu',ev=>{
+    if(state.tool==='draw'||state.tool==='fill') ev.preventDefault();
+  });
+
+  canvas.addEventListener('pointerdown',ev=>{
+    canvas.setPointerCapture(ev.pointerId); state.pointerDown=true; state.dragChanged=false; state.rightErase=false;
+    if(state.tool!=='select' && (state.selection || state.selectionIds.size)) clearSelection();
+
+    // Draw / Fill mode: right mouse button temporarily behaves as Erase.
+    if(ev.button===2 && (state.tool==='draw'||state.tool==='fill')){
+      ev.preventDefault(); state.rightErase=true; pushHistory(); performPointerAction(ev); return;
+    }
+
+    if(state.tool==='select'){
+      if(pointInsideSelection(ev)){
+        state.selectionDragging=true; state.isSelecting=false; state.dragStartSnap=mouseToHalfCoord(ev); state.dragDelta={x:0,y:0}; state.dragValid=true;
+        canvas.style.cursor='grabbing'; render(); return;
+      }
+      clearSelection();
+      const p=mouseToHalfCoord(ev); state.isSelecting=true; state.selectStart=p; state.selection={x1:p.x,y1:p.y,x2:p.x,y2:p.y};state.selectionIds.clear();syncSelectionActions();render();return;
+    }
+    if(state.tool==='pick'){const b=beadAtPointPx(ev);if(b){setCurrentColor(b.color);setTool('draw')}state.pointerDown=false;return}
+    if(state.tool==='fill'){state.pointerDown=false;performFill(ev);return}
+    pushHistory(); performPointerAction(ev);
+  });
+
+  canvas.addEventListener('pointermove',ev=>{
+    const p=state.tool==='select'?mouseToHalfCoord(ev):mouseToBeadCoord(ev);
+    const hit=beadAtPointPx(ev);
+    const erasing=state.tool==='erase'||state.rightErase;
+    const valid=erasing||state.tool==='select'||!!hit||!overlaps(p.x,p.y)||!!state.beads.find(b=>b.x===p.x&&b.y===p.y);
+    state.hover={...p,valid};
+    if(state.pointerDown){
+      if(state.tool==='select'){
+        if(state.selectionDragging){
+          const sp=mouseToHalfCoord(ev); state.dragDelta={x:sp.x-state.dragStartSnap.x,y:sp.y-state.dragStartSnap.y};
+          state.dragValid=validateSelectionDrag(state.dragDelta.x,state.dragDelta.y); render();
+        }else{state.selection.x2=p.x+2;state.selection.y2=p.y+2;computeSelection();render()}
+      }
+      else if(state.tool==='draw'||state.tool==='erase'||state.rightErase)performPointerAction(ev);
+    }else{
+      if(state.tool==='select') canvas.style.cursor=pointInsideSelection(ev)?'move':'crosshair';
+      render();
+    }
+    $('statusLeft').dataset.locked=''; $('statusLeft').textContent=t('position',{x:(p.x/2).toFixed(p.x%2?1:0),y:(p.y/2).toFixed(p.y%2?1:0)});
+  });
+
+  canvas.addEventListener('pointerup',finishPointer); canvas.addEventListener('pointercancel',finishPointer);
+  canvas.addEventListener('pointerleave',()=>{if(!state.pointerDown){state.hover=null;render()}});
+
+  function finishPointer(){
+    if(state.tool==='select'){
+      if(state.selectionDragging){
+        if((state.dragDelta.x||state.dragDelta.y)&&state.dragValid){
+          pushHistory();
+          for(const b of state.beads)if(state.selectionIds.has(b.id)){b.x+=state.dragDelta.x;b.y+=state.dragDelta.y}
+          refreshSelectionBoxFromIds(); updateStats();
+        }else if((state.dragDelta.x||state.dragDelta.y)&&!state.dragValid){flashStatus(t('overlapMove'));}
+        state.selectionDragging=false; state.dragStartSnap=null; state.dragDelta={x:0,y:0}; state.dragValid=true;
+        canvas.style.cursor='move'; syncSelectionActions();
+      }else{
+        state.isSelecting=false;computeSelection();
+        if(!state.selectionIds.size) clearSelection();
+        else {syncSelectionActions(); if(window.matchMedia('(max-width:900px)').matches){const btn=document.querySelector('#mobilePanelTabs button[data-mobile-panel="selection"]');if(btn)btn.click()}}
+      }
+    }
+    const wasEditGesture=(state.tool==='draw'||state.tool==='erase'||state.rightErase);
+    state.pointerDown=false; state.rightErase=false;
+    if(wasEditGesture&&!state.dragChanged){state.undo.pop();syncHistoryButtons()}
+    updateStats();render();
+  }
+
+  function recolorBeadAtEvent(ev,color){
+    const hit=beadAtPointPx(ev);
+    if(!hit)return false;
+    if(hit.color.toLowerCase()===color.toLowerCase())return false;
+    hit.color=color;
+    return true;
+  }
+
+  function performPointerAction(ev){
+    let changed=false;
+    if(state.tool==='erase'||state.rightErase){
+      changed=eraseAtEvent(ev);
+    }else if(state.tool==='draw'){
+      // Clicking / dragging across an existing bead recolors it immediately.
+      // Only empty space uses the current snap coordinate to place a new bead.
+      changed=recolorBeadAtEvent(ev,state.color);
+      if(!changed && !beadAtPointPx(ev)){
+        const p=mouseToBeadCoord(ev); changed=setBeadAt(p.x,p.y,state.color);
+      }
+    }
+    if(changed){state.dragChanged=true;render();updateStats()}
+  }
+
+  function connectedSameColor(start){
+    const result=new Set(), queue=[start], color=start.color.toLowerCase(); result.add(start.id);
+    while(queue.length){
+      const a=queue.shift();
+      for(const b of state.beads){
+        if(result.has(b.id)||b.color.toLowerCase()!==color)continue;
+        const dx=Math.abs(a.x-b.x),dy=Math.abs(a.y-b.y);
+        const sharesEdge=(dx===2&&dy<2)||(dy===2&&dx<2);
+        if(sharesEdge){result.add(b.id);queue.push(b)}
+      }
+    }
+    return result;
+  }
+
+  function performFill(ev){
+    const hit=beadAtPointPx(ev);
+    if(hit){
+      if(hit.color.toLowerCase()===state.color.toLowerCase())return;
+      const ids=connectedSameColor(hit); pushHistory();
+      for(const b of state.beads)if(ids.has(b.id))b.color=state.color; updateStats();render();return;
+    }
+    const start=mouseToBeadCoord(ev);
+    if(overlaps(start.x,start.y))return;
+    const parityX=start.x%2,parityY=start.y%2, minX=parityX, minY=parityY;
+    const maxX=state.width*2-2,maxY=state.height*2-2;
+    const key=(x,y)=>x+','+y,seen=new Set(),queue=[[start.x,start.y]],targets=[];
+    while(queue.length){
+      const [x,y]=queue.shift(),k=key(x,y); if(seen.has(k))continue;seen.add(k);
+      if(x<0||y<0||x>maxX||y>maxY||x%2!==parityX||y%2!==parityY||overlaps(x,y))continue;
+      targets.push([x,y]);
+      queue.push([x-2,y],[x+2,y],[x,y-2],[x,y+2]);
+    }
+    if(!targets.length)return;
+    if(targets.length>2000&&!confirm(t('fillTooLarge',{n:targets.length})))return;
+    pushHistory(); for(const [x,y] of targets)state.beads.push({id:state.nextId++,x,y,color:state.color}); updateStats();render();
+  }
+
+  function computeSelection(){
+    if(!state.selection)return;const s=state.selection,minX=Math.min(s.x1,s.x2),maxX=Math.max(s.x1,s.x2),minY=Math.min(s.y1,s.y2),maxY=Math.max(s.y1,s.y2);
+    state.selectionIds=new Set(state.beads.filter(b=>b.x>=minX&&b.x<maxX&&b.y>=minY&&b.y<maxY).map(b=>b.id));
+  }
+
+  function moveSelection(dx,dy,duplicate=false){
+    if(!state.selectionIds.size)return;const selected=state.beads.filter(b=>state.selectionIds.has(b.id)),target=selected.map(b=>({...b,x:b.x+dx,y:b.y+dy}));
+    if(target.some(b=>b.x<0||b.y<0||b.x>state.width*2-2||b.y>state.height*2-2))return flashStatus(t('outOfBounds'));
+    const ignore=duplicate?new Set():state.selectionIds;if(target.some(tb=>overlaps(tb.x,tb.y,ignore)))return flashStatus(t('overlapMove'));
+    pushHistory();
+    if(duplicate){const ids=[];for(const b of target){const nb={...b,id:state.nextId++};state.beads.push(nb);ids.push(nb.id)}state.selectionIds=new Set(ids)}
+    else for(const t1 of target){const b=state.beads.find(x=>x.id===t1.id);b.x=t1.x;b.y=t1.y}
+    refreshSelectionBoxFromIds();render();updateStats();syncSelectionActions();
+  }
+
+  function refreshSelectionBoxFromIds(){const arr=state.beads.filter(b=>state.selectionIds.has(b.id));if(!arr.length){state.selection=null;syncSelectionActions();return}state.selection={x1:Math.min(...arr.map(b=>b.x)),y1:Math.min(...arr.map(b=>b.y)),x2:Math.max(...arr.map(b=>b.x))+2,y2:Math.max(...arr.map(b=>b.y))+2}}
+  function flipSelection(horizontal){
+    if(!state.selectionIds.size)return;const arr=state.beads.filter(b=>state.selectionIds.has(b.id)),minX=Math.min(...arr.map(b=>b.x)),maxX=Math.max(...arr.map(b=>b.x)),minY=Math.min(...arr.map(b=>b.y)),maxY=Math.max(...arr.map(b=>b.y));
+    const target=arr.map(b=>({...b,x:horizontal?(minX+maxX-b.x):b.x,y:horizontal?b.y:(minY+maxY-b.y)}));if(target.some(tb=>overlaps(tb.x,tb.y,state.selectionIds)))return flashStatus(t('overlapFlip'));
+    pushHistory();for(const tt of target){const b=state.beads.find(x=>x.id===tt.id);b.x=tt.x;b.y=tt.y}refreshSelectionBoxFromIds();render();
+  }
+  function copySelection(){
+    if(!state.selectionIds.size)return;const arr=state.beads.filter(b=>state.selectionIds.has(b.id)),minX=Math.min(...arr.map(b=>b.x)),maxX=Math.max(...arr.map(b=>b.x)),minY=Math.min(...arr.map(b=>b.y)),maxY=Math.max(...arr.map(b=>b.y));
+    const candidates=[{dx:(maxX-minX)+2,dy:0},{dx:0,dy:(maxY-minY)+2},{dx:-((maxX-minX)+2),dy:0},{dx:0,dy:-((maxY-minY)+2)}];let chosen=null,target=null;
+    for(const c of candidates){const tt=arr.map(b=>({...b,x:b.x+c.dx,y:b.y+c.dy}));const inBounds=tt.every(b=>b.x>=0&&b.y>=0&&b.x<=state.width*2-2&&b.y<=state.height*2-2);if(inBounds&&!tt.some(tb=>overlaps(tb.x,tb.y,new Set()))){chosen=c;target=tt;break}}
+    if(!chosen)return flashStatus(t('noCopySpace'));pushHistory();const ids=[];for(const b of target){const nb={...b,id:state.nextId++};state.beads.push(nb);ids.push(nb.id)}state.selectionIds=new Set(ids);refreshSelectionBoxFromIds();render();updateStats();syncSelectionActions();
+  }
+  function deleteSelection(){if(!state.selectionIds.size)return;pushHistory();state.beads=state.beads.filter(b=>!state.selectionIds.has(b.id));state.selectionIds.clear();state.selection=null;render();updateStats();syncSelectionActions()}
+
+  function setTool(tool){
+    const leavingSelect=state.tool==='select'&&tool!=='select';
+    state.tool=tool;
+    document.querySelectorAll('#toolGroup button').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));
+    if(tool!=='select' && (leavingSelect || state.selection || state.selectionIds.size)) clearSelection();
+    canvas.style.cursor=tool==='select'?'crosshair':'';
+    render();
+  }
+  function normalizeColor(color){return String(color||'').toLowerCase()}
+  function isDefaultColor(color){const c=normalizeColor(color);return DEFAULT_PALETTE.some(x=>normalizeColor(x)===c)}
+  function loadRecentColors(){
+    try{
+      const saved=JSON.parse(localStorage.getItem('beadEditorRecentColors')||'[]');
+      state.recentColors=Array.isArray(saved)?saved.map(normalizeColor).filter(c=>/^#[0-9a-f]{6}$/.test(c)&&!isDefaultColor(c)).filter((c,i,a)=>a.indexOf(c)===i).slice(0,10):[];
+    }catch(_){state.recentColors=[]}
+  }
+  function saveRecentColors(){localStorage.setItem('beadEditorRecentColors',JSON.stringify(state.recentColors.slice(0,10)))}
+  function rememberRecentColor(color){
+    const c=normalizeColor(color); if(!/^#[0-9a-f]{6}$/.test(c)||isDefaultColor(c))return;
+    state.recentColors=state.recentColors.filter(x=>x!==c); state.recentColors.unshift(c); state.recentColors=state.recentColors.slice(0,10);
+    saveRecentColors(); renderRecentPalette();
+  }
+  function setCurrentColor(color){state.color=normalizeColor(color);$('customColor').value=state.color;document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('selected',normalizeColor(s.dataset.color)===state.color))}
+  function makeSwatch(color,onClick){const b=document.createElement('button');b.className='swatch';b.style.background=color;b.dataset.color=color;b.title=color;b.onclick=onClick;return b}
+  function renderRecentPalette(){
+    const p=$('recentPalette'); p.innerHTML='';
+    for(const color of state.recentColors){p.appendChild(makeSwatch(color,()=>{rememberRecentColor(color);setCurrentColor(color);setTool('draw')}))}
+    $('recentColorsWrap').classList.toggle('hidden',state.recentColors.length===0); setCurrentColor(state.color);
+  }
+  function buildPalette(){const p=$('palette');p.innerHTML='';for(const color of DEFAULT_PALETTE){p.appendChild(makeSwatch(color,()=>{setCurrentColor(color);setTool('draw')}))}renderRecentPalette();setCurrentColor(state.color)}
+
+  function updateStats(){
+    const counts=new Map();for(const b of state.beads)counts.set(b.color,(counts.get(b.color)||0)+1);const box=$('stats');box.innerHTML='';
+    [...counts.entries()].sort((a,b)=>b[1]-a[1]).forEach(([color,n])=>{const row=document.createElement('div');row.className='stat-row';row.innerHTML=`<span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${color};border:1px solid #94a3b8;margin-right:6px;vertical-align:-1px"></i>${color}</span><strong>${n}</strong>`;box.appendChild(row)});
+    if(!counts.size)box.innerHTML=`<div class="hint">${t('noBeads')}</div>`;$('statusRight').textContent=t('totalStats',{n:state.beads.length,c:counts.size});
+  }
+
+  function flashStatus(text){$('statusLeft').dataset.locked='1';$('statusLeft').textContent=text;setTimeout(()=>{$('statusLeft').dataset.locked='';$('statusLeft').textContent=t('ready')},1400)}
+
+  function newBoard(){
+    const w=Math.max(4,Math.min(100,Number($('canvasW').value)||30)),h=Math.max(4,Math.min(100,Number($('canvasH').value)||30));
+    if(state.beads.length&&!confirm(t('newConfirm')))return;state.width=w;state.height=h;state.beads=[];state.nextId=1;state.undo=[];state.redo=[];state.selection=null;state.selectionIds.clear();state.isSelecting=false;resizeCanvas();updateStats();syncHistoryButtons();syncSelectionActions();
+  }
+
+  function exportJSON(){
+    const project={app:'block-bead-editor',version:APP_VERSION,canvas:{width:state.width,height:state.height},settings:{snap:state.snap,beadPx:state.beadPx},palette:[...new Set([...DEFAULT_PALETTE,...state.recentColors,...state.beads.map(b=>b.color)])],beads:state.beads.map(({id,x,y,color})=>({id,x,y,color}))};
+    downloadBlob(new Blob([JSON.stringify(project,null,2)],{type:'application/json'}),`block-bead-${state.width}x${state.height}.json`);
+  }
+
+  function loadJSON(file){
+    const r=new FileReader();r.onload=()=>{try{const p=JSON.parse(r.result);if(!p||!p.canvas||!Array.isArray(p.beads))throw new Error('Invalid format');const w=Number(p.canvas.width),h=Number(p.canvas.height);if(!Number.isInteger(w)||!Number.isInteger(h)||w<4||h<4||w>100||h>100)throw new Error('Invalid canvas size');const beads=[];let maxId=0;
+      for(const item of p.beads){const x=Number(item.x),y=Number(item.y),id=Number(item.id)||(++maxId),color=String(item.color||'');if(!Number.isInteger(x)||!Number.isInteger(y)||x<0||y<0||x>w*2-2||y>h*2-2||!/^#[0-9a-f]{6}$/i.test(color))throw new Error('Invalid bead data');beads.push({id,x,y,color:color.toLowerCase()});maxId=Math.max(maxId,id)}
+      for(let i=0;i<beads.length;i++)for(let j=i+1;j<beads.length;j++)if(Math.abs(beads[i].x-beads[j].x)<2&&Math.abs(beads[i].y-beads[j].y)<2)throw new Error('Overlapping beads');
+      state.width=w;state.height=h;state.beads=beads;state.nextId=maxId+1;state.undo=[];state.redo=[];state.selection=null;state.selectionIds.clear();state.isSelecting=false;
+      if(p.settings?.snap==='whole'||p.settings?.snap==='half'){state.snap=p.settings.snap;$('snapMode').value=state.snap}if([16,24,32].includes(Number(p.settings?.beadPx))){state.beadPx=Number(p.settings.beadPx);$('zoomMode').value=String(state.beadPx)}
+      $('canvasW').value=w;$('canvasH').value=h;resizeCanvas();updateStats();syncHistoryButtons();syncSelectionActions();flashStatus(t('jsonLoaded'));
+    }catch(err){alert(t('jsonLoadFail',{msg:err.message}))}};r.readAsText(file,'utf-8');
+  }
+
+  function openExportModal(){if(!state.beads.length){alert(t('noBeadsExport'));return}$('exportModal').classList.add('open')}
+  function closeExportModal(){$('exportModal').classList.remove('open')}
+
+  function getColorCounts(){
+    const counts=new Map();
+    for(const b of state.beads)counts.set(b.color.toLowerCase(),(counts.get(b.color.toLowerCase())||0)+1);
+    return [...counts.entries()].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]));
+  }
+
+  function luminance(hex){
+    const rgb=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(v=>v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4));
+    return .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];
+  }
+
+  function exportPNG(){
+    if(!state.beads.length)return;
+    const scale=Number($('exportScale').value)||2,range=$('exportRange').value,paddingBeads=Number($('exportPadding').value)||0,effect=$('exportBeadEffect').checked,showGrid=$('exportGrid').checked;
+    const showLegend=$('exportLegend').checked;
+    const showLegendColorCode=$('exportLegendColorCode').checked;
+    let legendPosition=$('exportLegendPosition').value;
+    let startHX=0,startHY=0,endHX=state.width*2,endHY=state.height*2;
+    if(range==='content'){
+      startHX=Math.min(...state.beads.map(b=>b.x))-paddingBeads*2;startHY=Math.min(...state.beads.map(b=>b.y))-paddingBeads*2;
+      endHX=Math.max(...state.beads.map(b=>b.x+2))+paddingBeads*2;endHY=Math.max(...state.beads.map(b=>b.y+2))+paddingBeads*2;
+    }
+    const hp=state.beadPx/2;
+    const artW=Math.max(1,(endHX-startHX)*hp),artH=Math.max(1,(endHY-startHY)*hp);
+    const counts=getColorCounts();
+    if(showLegend&&legendPosition==='auto') legendPosition=artW/artH>=1.25?'bottom':'right';
+
+    const fontSize=Math.max(12,Math.round(state.beadPx*.55));
+    const itemH=Math.max(22,Math.round(fontSize*1.65));
+    const swatch=Math.max(12,Math.round(fontSize*.92));
+    const panelPad=Math.max(10,Math.round(fontSize*.8));
+    const gap=Math.max(10,Math.round(state.beadPx*.55));
+    const measure=document.createElement('canvas').getContext('2d');
+    measure.font=`600 ${fontSize}px Inter, "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+    let itemW=0;
+    for(const [color,n] of counts){const label=showLegendColorCode?`${color.toUpperCase()} × ${n}`:`× ${n}`;itemW=Math.max(itemW,swatch+8+measure.measureText(label).width);}
+    itemW=Math.ceil(itemW+panelPad*2);
+
+    let legendW=0,legendH=0,legendCols=1,legendRows=counts.length;
+    if(showLegend){
+      if(legendPosition==='bottom'){
+        legendCols=Math.max(1,Math.min(counts.length,Math.floor(Math.max(artW,itemW)/itemW)));
+        legendRows=Math.ceil(counts.length/legendCols);
+        legendW=Math.max(artW,legendCols*itemW);
+        legendH=panelPad*2+legendRows*itemH;
+      }else{
+        legendW=itemW;
+        legendH=panelPad*2+counts.length*itemH;
+      }
+    }
+
+    let cssW=artW,cssH=artH,artX=0,artY=0,legendX=0,legendY=0;
+    if(showLegend){
+      if(legendPosition==='left'){
+        cssW=legendW+gap+artW; cssH=Math.max(artH,legendH); artX=legendW+gap; artY=(cssH-artH)/2; legendX=0; legendY=(cssH-legendH)/2;
+      }else if(legendPosition==='right'){
+        cssW=artW+gap+legendW; cssH=Math.max(artH,legendH); artX=0; artY=(cssH-artH)/2; legendX=artW+gap; legendY=(cssH-legendH)/2;
+      }else{
+        cssW=Math.max(artW,legendW); cssH=artH+gap+legendH; artX=(cssW-artW)/2; artY=0; legendX=(cssW-legendW)/2; legendY=artH+gap;
+      }
+    }
+
+    const out=document.createElement('canvas');out.width=Math.ceil(cssW*scale);out.height=Math.ceil(cssH*scale);const oc=out.getContext('2d');oc.scale(scale,scale);
+    const bg=$('exportBackground').value;
+    const bgColor=bg==='white'?'#ffffff':bg==='black'?'#000000':bg==='custom'?$('exportBgColor').value:null;
+    if(bgColor){oc.fillStyle=bgColor;oc.fillRect(0,0,cssW,cssH)}
+
+    oc.save();oc.translate(artX,artY);
+    if(showGrid)drawGrid(oc,startHX,startHY,endHX,endHY,hp,true);
+    for(const b of state.beads){const bx=(b.x-startHX)*hp,by=(b.y-startHY)*hp,s=state.beadPx;if(bx+s<0||by+s<0||bx>artW||by>artH)continue;paintBead(oc,bx,by,s,b.color,effect,effect?1:0)}
+    oc.restore();
+
+    if(showLegend){
+      const darkBg=bgColor ? luminance(bgColor)<.32 : false;
+      const textColor=darkBg?'#f8fafc':'#111827';
+      const borderColor=darkBg?'rgba(255,255,255,.35)':'rgba(15,23,42,.28)';
+      oc.save();
+      oc.font=`600 ${fontSize}px Inter, "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+      oc.textBaseline='middle';
+      counts.forEach(([color,n],i)=>{
+        let col=0,row=i;
+        if(legendPosition==='bottom'){col=i%legendCols;row=Math.floor(i/legendCols)}
+        const x=legendX+panelPad+col*itemW;
+        const y=legendY+panelPad+row*itemH+itemH/2;
+        oc.fillStyle=color;roundedRect(oc,x,y-swatch/2,swatch,swatch,Math.max(2,swatch*.15));oc.fill();
+        oc.strokeStyle=borderColor;oc.lineWidth=1;oc.stroke();
+        const label=showLegendColorCode?`${color.toUpperCase()} × ${n}`:`× ${n}`;
+        const tx=x+swatch+8;
+        if(!bgColor){oc.strokeStyle='rgba(255,255,255,.92)';oc.lineWidth=3;oc.lineJoin='round';oc.strokeText(label,tx,y)}
+        oc.fillStyle=textColor;oc.fillText(label,tx,y);
+      });
+      oc.restore();
+    }
+
+    out.toBlob(blob=>downloadBlob(blob,`block-bead-${state.beads.length}-beads.png`),'image/png');closeExportModal();
+  }
+
+  function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0)}
+
+  document.querySelectorAll('#toolGroup button').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+  $('newBtn').onclick=newBoard;$('snapMode').onchange=e=>{state.snap=e.target.value;render()};$('zoomMode').onchange=e=>{state.beadPx=Number(e.target.value);resizeCanvas()};
+  $('undoBtn').onclick=()=>applyHistory(state.undo,state.redo);$('redoBtn').onclick=()=>applyHistory(state.redo,state.undo);
+  $('saveJsonBtn').onclick=exportJSON;$('loadJsonBtn').onclick=()=>$('jsonFile').click();$('jsonFile').onchange=e=>{const f=e.target.files[0];if(f)loadJSON(f);e.target.value=''};
+  $('exportPngBtn').onclick=openExportModal;$('closeExportModal').onclick=closeExportModal;$('cancelExport').onclick=closeExportModal;$('confirmExport').onclick=exportPNG;
+  $('exportRange').onchange=e=>$('paddingRow').classList.toggle('hidden',e.target.value==='canvas');
+  $('exportBackground').onchange=e=>$('exportBgColor').classList.toggle('hidden',e.target.value!=='custom');
+  $('exportLegend').onchange=e=>{
+    $('legendPositionRow').classList.toggle('hidden',!e.target.checked);
+    $('legendColorCodeRow').classList.toggle('hidden',!e.target.checked);
+    $('legendHint').classList.toggle('hidden',!e.target.checked);
+  };
+  $('moreToolsBtn').onclick=()=>{
+    const open=$('topbarMore').classList.toggle('open');
+    $('moreToolsBtn').setAttribute('aria-expanded',String(open));
+  };
+  document.querySelectorAll('#mobilePanelTabs button').forEach(btn=>btn.onclick=()=>{
+    const panel=btn.dataset.mobilePanel;
+    document.querySelectorAll('#mobilePanelTabs button').forEach(b=>b.classList.toggle('active',b===btn));
+    document.querySelectorAll('.sidebar .panel-section').forEach(sec=>sec.classList.toggle('mobile-active',sec.dataset.panel===panel));
+  });
+  $('exportModal').addEventListener('pointerdown',e=>{if(e.target===$('exportModal'))closeExportModal()});
+  $('useCustomColor').onclick=()=>{
+    const picker=$('customColor');
+    try{
+      if(typeof picker.showPicker==='function') picker.showPicker();
+      else picker.click();
+    }catch(_){ picker.click(); }
+  };
+  $('customColor').oninput=e=>{setCurrentColor(e.target.value);setTool('draw')};
+  $('customColor').onchange=e=>{rememberRecentColor(e.target.value);setCurrentColor(e.target.value);setTool('draw')};
+
+  $('moveLeft').onclick=()=>moveSelection(-1,0);$('moveRight').onclick=()=>moveSelection(1,0);$('moveUp').onclick=()=>moveSelection(0,-1);$('moveDown').onclick=()=>moveSelection(0,1);
+  $('copySel').onclick=copySelection;$('deleteSel').onclick=deleteSelection;$('flipH').onclick=()=>flipSelection(true);$('flipV').onclick=()=>flipSelection(false);$('clearSel').onclick=()=>{state.selection=null;state.selectionIds.clear();syncSelectionActions();render()};
+
+  $('themeMode').onchange=e=>{state.theme=e.target.value;applyTheme()};
+  $('languageMode').onchange=e=>{state.language=e.target.value;applyLanguage();applyShortcutTitles()};
+
+  window.addEventListener('keydown',e=>{
+    const key=e.key;
+    const lower=key.toLowerCase();
+
+    // Escape should always be available for modal / selection cleanup.
+    if(key==='Escape'){
+      if($('exportModal').classList.contains('open')){e.preventDefault();closeExportModal();return;}
+      if(state.selectionIds.size||state.selection){
+        e.preventDefault();state.selection=null;state.selectionIds.clear();syncSelectionActions();render();return;
+      }
+    }
+
+    // Do not fire editor shortcuts while typing or choosing values.
+    if(isTypingTarget(e.target)) return;
+
+    if((e.ctrlKey||e.metaKey)&&lower==='z'){e.preventDefault();applyHistory(state.undo,state.redo);return;}
+    if((e.ctrlKey||e.metaKey)&&lower==='y'){e.preventDefault();applyHistory(state.redo,state.undo);return;}
+
+    // Selection shortcuts have priority when a selection exists.
+    if(state.selectionIds.size){
+      const step=e.shiftKey?2:1; // internal unit: 1 = 0.5 bead
+      if(key==='ArrowLeft'){e.preventDefault();moveSelection(-step,0);return;}
+      if(key==='ArrowRight'){e.preventDefault();moveSelection(step,0);return;}
+      if(key==='ArrowUp'){e.preventDefault();moveSelection(0,-step);return;}
+      if(key==='ArrowDown'){e.preventDefault();moveSelection(0,step);return;}
+      if((e.ctrlKey||e.metaKey)&&lower==='d'){e.preventDefault();copySelection();return;}
+      if(key==='Delete'||key==='Backspace'){e.preventDefault();deleteSelection();return;}
+      if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&lower==='h'){e.preventDefault();flipSelection(true);return;}
+      if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&lower==='v'){e.preventDefault();flipSelection(false);return;}
+    }
+
+    if(e.ctrlKey||e.metaKey||e.altKey) return;
+
+    // Tool shortcuts.
+    const toolByKey={d:'draw',e:'erase',f:'fill',i:'pick',s:'select'};
+    if(toolByKey[lower]){e.preventDefault();setTool(toolByKey[lower]);return;}
+
+    // Snap shortcuts.
+    if(key==='1'){
+      e.preventDefault();state.snap='whole';$('snapMode').value='whole';render();return;
+    }
+    if(key==='2'){
+      e.preventDefault();state.snap='half';$('snapMode').value='half';render();return;
+    }
+  });
+
+  $('themeMode').value=state.theme;$('languageMode').value=state.language;
+  document.title=`${I18N['zh-Hant'].appName} v${APP_VERSION}`; $('versionBadge').textContent=`v${APP_VERSION}`; state.version=APP_VERSION; loadRecentColors(); buildPalette();applyTheme();applyLanguage();applyShortcutTitles();resizeCanvas();updateStats();syncHistoryButtons();syncSelectionActions();
+})();
+</script>
+</body>
+</html>
