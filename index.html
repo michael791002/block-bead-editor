@@ -198,6 +198,26 @@
     .workspace{padding:10px}
   }
 
+  /* Canvas structure tools + guide controls (v14 development update) */
+  .group-canvas-edit,.group-guides{gap:6px}
+  .group-canvas-edit input[type="number"]{width:58px}
+  .group-canvas-edit .mini-label{display:flex;align-items:center;gap:4px}
+  .group-canvas-edit .trim-label{display:flex;align-items:center;gap:4px}
+  .group-guides .check-inline{display:flex;align-items:center;gap:5px}
+  .group-guides select{min-width:64px}
+  .guide-title,.canvas-edit-title{font-size:12px;color:var(--muted);font-weight:700}
+  @media (max-width:900px){
+    .group-canvas-edit,.group-guides{grid-column:1/-1!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+    .group-canvas-edit .canvas-edit-title,.group-guides .guide-title{grid-column:1/-1}
+    .group-canvas-edit .mini-label,.group-canvas-edit .trim-label{display:grid;grid-template-columns:auto 1fr;align-items:center}
+    .group-canvas-edit input[type="number"],.group-canvas-edit select,.group-guides select{width:100%;min-width:0}
+    .group-guides .check-inline{min-height:34px}
+  }
+  @media (max-width:560px){
+    .group-canvas-edit,.group-guides{grid-template-columns:1fr 1fr}
+    .group-canvas-edit button{padding:7px 5px}
+  }
+
 </style>
 </head>
 <body data-theme="light">
@@ -223,7 +243,7 @@
       <div class="group group-canvas">
         <label><span data-i18n="width">寬</span> <input id="canvasW" type="number" min="4" max="100" value="30"></label>
         <label><span data-i18n="height">高</span> <input id="canvasH" type="number" min="4" max="100" value="30"></label>
-        <button id="newBtn" data-i18n="createCanvas">建立畫布</button>
+        <button id="newBtn" data-i18n="applyCanvasSize">套用尺寸</button>
       </div>
       <div class="group group-view">
         <label><span data-i18n="snap">吸附</span>
@@ -238,6 +258,22 @@
             <option value="24" selected data-i18n="zoomMedium">中</option>
             <option value="32" data-i18n="zoomLarge">大</option>
           </select>
+        </label>
+      </div>
+      <div class="group group-canvas-edit">
+        <label class="trim-label"><span data-i18n="trimPadding">Trim 留白</span>
+          <select id="trimPadding"><option value="0">0</option><option value="1" selected>1</option><option value="2">2</option><option value="5">5</option></select>
+        </label>
+        <button id="trimBtn" data-i18n="trimCanvas">✂ Trim</button>
+      </div>
+      <div class="group group-guides">
+        <span class="guide-title" data-i18n="canvasGuides">畫布輔助</span>
+        <label class="check-inline"><input id="showCenterLine" type="checkbox"> <span data-i18n="showCenterLine">中心線</span></label>
+        <label class="check-inline"><input id="showMarkers" type="checkbox"> <span data-i18n="showMarkers">N 格標記</span></label>
+        <button id="centerCoordBtn" type="button" data-i18n="centerCoordinates">中心座標</button>
+        <label class="mini-label"><span data-i18n="markerEvery">每</span>
+          <select id="markerInterval"><option value="5" selected>5</option><option value="10">10</option><option value="20">20</option></select>
+          <span data-i18n="beadsUnit">格</span>
         </label>
       </div>
       <div class="group group-files">
@@ -429,11 +465,12 @@
 
   const I18N = {
     'zh-Hant': {
-      appName:'積木拼豆編輯器', fileName:'檔案名稱', jsonExportTitle:'匯出 JSON', extensionAuto:'副檔名會自動加入。', download:'下載', width:'寬', height:'高', createCanvas:'建立畫布',
+      appName:'積木拼豆編輯器', fileName:'檔案名稱', jsonExportTitle:'匯出 JSON', extensionAuto:'副檔名會自動加入。', download:'下載', width:'寬', height:'高', createCanvas:'建立畫布', applyCanvasSize:'套用尺寸',
       toolDraw:'✏️ 上色', toolErase:'🧽 擦除', toolFill:'🪣 填滿', toolPick:'🎯 吸色', toolSelect:'⬚ 框選',
       snap:'吸附', snapHalf:'半格', snapWhole:'整格', zoom:'縮放', zoomSmall:'小', zoomMedium:'中', zoomLarge:'大',
       exportJson:'💾 匯出 JSON', loadJson:'📂 載入 JSON', exportPng:'🖼️ 匯出 PNG',
       theme:'主題', themeLight:'淺色', themeDark:'暗色', language:'語言', moreTools:'其他設定',
+      canvasEdit:'畫布編輯', row:'列', column:'欄', insertRow:'＋ 插入列', deleteRow:'－ 刪除列', insertCol:'＋ 插入欄', deleteCol:'－ 刪除欄', trimPadding:'Trim 留白', trimCanvas:'✂ Trim', canvasGuides:'畫布輔助', showCenterLine:'顯示中心線', showMarkers:'顯示 N 格標記', centerCoordinates:'中心座標', markerEvery:'每', beadsUnit:'格',
       colors:'顏色', useCustom:'使用自訂色', recentColors:'最近使用', selectionActions:'框選操作', notSelected:'尚未選取', selectedCount:'已選取 {n} 顆',
       copy:'複製', delete:'刪除', flipH:'水平翻轉', flipV:'垂直翻轉', clearSelection:'取消選取', statistics:'統計',
       ready:'就緒', position:'位置：{x}, {y}', totalStats:'{n} 顆拼豆 / {c} 種顏色', noBeads:'目前還沒有拼豆。',
@@ -441,10 +478,10 @@
       padding:'外圍留白', background:'背景', bgTransparent:'透明', bgWhite:'白色', bgBlack:'黑色', bgCustom:'自訂',
       resolution:'輸出倍率', showGrid:'顯示格線', beadEffect:'顯示拼豆立體效果', showLegend:'列出使用顏色與顆數', showColorCode:'顯示色碼', legendPosition:'清單位置', legendAuto:'自動判斷', legendLeft:'左側', legendRight:'右側', legendBottom:'下方', legendHint:'自動模式會依拼豆圖比例選擇右側或下方，讓成品盡量不要變得過窄或過高。',
       cropHint:'「自動裁切」會依最外圍拼豆決定圖片大小，不受原本 30×30 等畫布尺寸影響。',
-      cancel:'取消', exportImage:'匯出圖片', newConfirm:'建立新畫布會清除目前內容，確定嗎？',
+      cancel:'取消', exportImage:'匯出圖片', newConfirm:'建立新畫布會清除目前內容，確定嗎？', resizeCropConfirm:'縮小畫布會刪除範圍外的 {count} 顆拼豆，確定套用嗎？', resizeDone:'畫布尺寸已調整為 {w} × {h}。',
       outOfBounds:'移動後會超出畫布', overlapMove:'移動位置與其他拼豆重疊', overlapFlip:'翻轉後會與其他拼豆重疊',
       noCopySpace:'附近沒有足夠空間可放置複製內容', jsonLoaded:'JSON 載入完成', jsonLoadFail:'無法載入 JSON：{msg}',
-      noBeadsExport:'目前沒有拼豆可以輸出。', fillTooLarge:'這次填滿會新增 {n} 顆拼豆，是否繼續？'
+      noBeadsExport:'目前沒有拼豆可以輸出。', fillTooLarge:'這次填滿會新增 {n} 顆拼豆，是否繼續？', deleteRowConfirm:'第 {index} 列有 {count} 顆拼豆，刪除列時會一併刪除，確定嗎？', deleteColConfirm:'第 {index} 欄有 {count} 顆拼豆，刪除欄時會一併刪除，確定嗎？', minCanvasSize:'畫布寬高至少需保留 4 格。', maxCanvasSize:'畫布最大為 100 × 100。', deleteWouldOverlap:'刪除這一列／欄後，半格拼豆會互相重疊，因此無法執行。', trimNoChange:'目前已沒有可裁切的空白範圍。', trimDone:'已裁切畫布為 {w} × {h}。'
     },
     en: {
       appName:'Block Bead Editor', fileName:'File name', jsonExportTitle:'Export JSON', extensionAuto:'The file extension is added automatically.', download:'Download', width:'W', height:'H', createCanvas:'New Canvas',
@@ -452,6 +489,7 @@
       snap:'Snap', snapHalf:'Half', snapWhole:'Whole', zoom:'Zoom', zoomSmall:'Small', zoomMedium:'Medium', zoomLarge:'Large',
       exportJson:'💾 Export JSON', loadJson:'📂 Load JSON', exportPng:'🖼️ Export PNG',
       theme:'Theme', themeLight:'Light', themeDark:'Dark', language:'Language', moreTools:'More',
+      canvasEdit:'Canvas edit', row:'Row', column:'Column', insertRow:'+ Insert row', deleteRow:'- Delete row', insertCol:'+ Insert column', deleteCol:'- Delete column', trimPadding:'Trim padding', trimCanvas:'✂ Trim', canvasGuides:'Guides', showCenterLine:'Center line', showMarkers:'Every N markers', centerCoordinates:'Center coordinates', markerEvery:'Every', beadsUnit:'cells',
       colors:'Colors', useCustom:'Use custom', recentColors:'Recent colors', selectionActions:'Selection', notSelected:'No selection', selectedCount:'{n} selected',
       copy:'Copy', delete:'Delete', flipH:'Flip H', flipV:'Flip V', clearSelection:'Clear', statistics:'Statistics',
       ready:'Ready', position:'Position: {x}, {y}', totalStats:'{n} beads / {c} colors', noBeads:'No beads yet.',
@@ -462,7 +500,7 @@
       cancel:'Cancel', exportImage:'Export Image', newConfirm:'Creating a new canvas will clear the current project. Continue?',
       outOfBounds:'Move would go outside the canvas', overlapMove:'Move would overlap other beads', overlapFlip:'Flip would overlap other beads',
       noCopySpace:'No nearby free space for the copied selection', jsonLoaded:'JSON loaded', jsonLoadFail:'Cannot load JSON: {msg}',
-      noBeadsExport:'There are no beads to export.', fillTooLarge:'This fill will add {n} beads. Continue?'
+      noBeadsExport:'There are no beads to export.', fillTooLarge:'This fill will add {n} beads. Continue?', deleteRowConfirm:'Row {index} contains {count} beads. Delete them with the row?', deleteColConfirm:'Column {index} contains {count} beads. Delete them with the column?', minCanvasSize:'Canvas width and height must remain at least 4 cells.', maxCanvasSize:'Maximum canvas size is 100 × 100.', deleteWouldOverlap:'Deleting this row/column would make half-grid beads overlap, so the operation was cancelled.', trimNoChange:'There is no blank border left to trim.', trimDone:'Canvas trimmed to {w} × {h}.'
     }
   };
 
@@ -511,7 +549,11 @@
     selectionDragging:false, dragStartSnap:null, dragDelta:{x:0,y:0}, dragValid:true,
     language:localStorage.getItem('beadEditorLanguage') || 'zh-Hant',
     theme:localStorage.getItem('beadEditorTheme') || 'light',
-    recentColors:[]
+    recentColors:[],
+    showCenterLine:localStorage.getItem('beadEditorShowCenterLine')==='1',
+    showMarkers:localStorage.getItem('beadEditorShowMarkers')==='1',
+    centerCoordinates:localStorage.getItem('beadEditorCenterCoordinates')==='1',
+    markerInterval:[5,10,20].includes(Number(localStorage.getItem('beadEditorMarkerInterval')))?Number(localStorage.getItem('beadEditorMarkerInterval')):5
   };
 
   function t(key, vars={}){
@@ -538,17 +580,24 @@
   }
 
   function cloneBeads(){ return state.beads.map(b=>({...b})); }
+  function cloneProjectState(){ return {width:state.width,height:state.height,beads:cloneBeads(),nextId:state.nextId}; }
+  function restoreProjectState(snapshot){
+    // Compatibility with any in-memory history entries created by older code in this page.
+    if(Array.isArray(snapshot)){state.beads=snapshot.map(b=>({...b}));}
+    else {state.width=snapshot.width;state.height=snapshot.height;state.beads=snapshot.beads.map(b=>({...b}));state.nextId=snapshot.nextId||Math.max(0,...state.beads.map(b=>b.id))+1;}
+    state.nextId=Math.max(state.nextId||1,Math.max(0,...state.beads.map(b=>b.id))+1);
+    syncCanvasInputs();
+  }
   function pushHistory(){
-    state.undo.push(cloneBeads());
+    state.undo.push(cloneProjectState());
     if(state.undo.length>100) state.undo.shift();
     state.redo=[]; syncHistoryButtons();
   }
   function syncHistoryButtons(){ $('undoBtn').disabled=!state.undo.length; $('redoBtn').disabled=!state.redo.length; }
   function applyHistory(targetStack,otherStack){
     if(!targetStack.length)return;
-    otherStack.push(cloneBeads()); state.beads=targetStack.pop();
-    state.selection=null; state.selectionIds.clear(); state.isSelecting=false;
-    render(); updateStats(); syncHistoryButtons(); syncSelectionActions();
+    otherStack.push(cloneProjectState()); restoreProjectState(targetStack.pop());
+    clearSelection(); resizeCanvas(); updateStats(); syncHistoryButtons(); syncSelectionActions();
   }
 
   function clearSelection(){
@@ -578,6 +627,58 @@
     canvas.style.width=cssW+'px'; canvas.style.height=cssH+'px';
     canvas.width=Math.round(cssW*dpr); canvas.height=Math.round(cssH*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0); render();
+  }
+
+  function syncCanvasInputs(){
+    $('canvasW').value=state.width; $('canvasH').value=state.height;
+  }
+
+  function saveGuideSettings(){
+    localStorage.setItem('beadEditorShowCenterLine',state.showCenterLine?'1':'0');
+    localStorage.setItem('beadEditorShowMarkers',state.showMarkers?'1':'0');
+    localStorage.setItem('beadEditorCenterCoordinates',state.centerCoordinates?'1':'0');
+    localStorage.setItem('beadEditorMarkerInterval',String(state.markerInterval));
+  }
+
+  function drawCanvasGuides(c,w,h){
+    c.save();
+    const accent=cssVar('--accent')||'#0f766e';
+    if(state.showMarkers){
+      const n=Math.max(1,state.markerInterval), step=n*state.beadPx;
+      c.strokeStyle='rgba(14,116,144,.34)'; c.fillStyle=cssVar('--muted')||'#64748b'; c.lineWidth=1.4;
+      c.font=`600 ${Math.max(9,Math.min(12,state.beadPx*.42))}px Inter, sans-serif`;
+      if(state.centerCoordinates){
+        const cx=w/2, cy=h/2;
+        c.textBaseline='top';
+        // X axis: left negative, right positive.
+        for(let d=step;cx+d<w-.1||cx-d>0;d+=step){
+          const value=Math.round(d/state.beadPx);
+          if(cx+d<w-.1){c.beginPath();c.moveTo(cx+d,0);c.lineTo(cx+d,h);c.stroke();c.fillText(String(value),cx+d+3,3)}
+          if(cx-d>0){c.beginPath();c.moveTo(cx-d,0);c.lineTo(cx-d,h);c.stroke();c.fillText(String(-value),cx-d+3,3)}
+        }
+        c.fillText('0',cx+3,3);
+        c.textBaseline='middle';
+        // Y axis: engineering-style coordinates, up positive and down negative.
+        for(let d=step;cy+d<h-.1||cy-d>0;d+=step){
+          const value=Math.round(d/state.beadPx);
+          if(cy-d>0){c.beginPath();c.moveTo(0,cy-d);c.lineTo(w,cy-d);c.stroke();c.fillText(String(value),3,cy-d+8)}
+          if(cy+d<h-.1){c.beginPath();c.moveTo(0,cy+d);c.lineTo(w,cy+d);c.stroke();c.fillText(String(-value),3,cy+d+8)}
+        }
+        c.fillText('0',3,cy+8);
+      }else{
+        c.textBaseline='top';
+        for(let x=step,k=n;x<w-.1;x+=step,k+=n){c.beginPath();c.moveTo(x,0);c.lineTo(x,h);c.stroke();c.fillText(String(k),x+3,3)}
+        c.textBaseline='middle';
+        for(let y=step,k=n;y<h-.1;y+=step,k+=n){c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();c.fillText(String(k),3,y+8)}
+      }
+    }
+    if(state.showCenterLine){
+      c.strokeStyle=accent; c.globalAlpha=.78; c.lineWidth=2; c.setLineDash([8,5]);
+      const cx=w/2,cy=h/2;
+      c.beginPath();c.moveTo(cx,0);c.lineTo(cx,h);c.stroke();
+      c.beginPath();c.moveTo(0,cy);c.lineTo(w,cy);c.stroke();
+    }
+    c.restore();
   }
 
   function cssVar(name){ return getComputedStyle(document.body).getPropertyValue(name).trim(); }
@@ -627,6 +728,7 @@
     const w=boardPxW(),h=boardPxH(); ctx.clearRect(0,0,w,h);
     ctx.fillStyle=cssVar('--canvas-bg')||'#fff'; ctx.fillRect(0,0,w,h);
     drawGrid(ctx,0,0,state.width*2,state.height*2,halfPx(),false);
+    drawCanvasGuides(ctx,w,h);
     renderBeads(ctx,0,0,halfPx(),state.beadPx,true);
     drawSelection(); drawHover();
   }
@@ -905,9 +1007,43 @@
 
   function flashStatus(text){$('statusLeft').dataset.locked='1';$('statusLeft').textContent=text;setTimeout(()=>{$('statusLeft').dataset.locked='';$('statusLeft').textContent=t('ready')},1400)}
 
-  function newBoard(){
-    const w=Math.max(4,Math.min(100,Number($('canvasW').value)||30)),h=Math.max(4,Math.min(100,Number($('canvasH').value)||30));
-    if(state.beads.length&&!confirm(t('newConfirm')))return;state.width=w;state.height=h;state.beads=[];state.nextId=1;state.undo=[];state.redo=[];state.selection=null;state.selectionIds.clear();state.isSelecting=false;resizeCanvas();updateStats();syncHistoryButtons();syncSelectionActions();
+  function applyCanvasSize(){
+    const w=Math.max(4,Math.min(100,Number($('canvasW').value)||state.width));
+    const h=Math.max(4,Math.min(100,Number($('canvasH').value)||state.height));
+    $('canvasW').value=w; $('canvasH').value=h;
+    if(w===state.width&&h===state.height)return;
+    const outside=state.beads.filter(b=>b.x<0||b.y<0||b.x>w*2-2||b.y>h*2-2);
+    if(outside.length&&!confirm(t('resizeCropConfirm',{count:outside.length}))){syncCanvasInputs();return;}
+    pushHistory();
+    if(outside.length){
+      const ids=new Set(outside.map(b=>b.id));
+      state.beads=state.beads.filter(b=>!ids.has(b.id));
+    }
+    state.width=w; state.height=h;
+    finishCanvasStructureEdit(t('resizeDone',{w,h}));
+  }
+
+  function internalOverlap(beads){
+    for(let i=0;i<beads.length;i++)for(let j=i+1;j<beads.length;j++)if(Math.abs(beads[i].x-beads[j].x)<2&&Math.abs(beads[i].y-beads[j].y)<2)return true;
+    return false;
+  }
+  function finishCanvasStructureEdit(message=''){
+    clearSelection(); syncCanvasInputs(); resizeCanvas(); updateStats(); syncHistoryButtons();
+    if(message)flashStatus(message);
+  }
+  function trimCanvas(){
+    if(!state.beads.length)return flashStatus(t('noBeads'));
+    const pad=Math.max(0,Number($('trimPadding').value)||0)*2;
+    const minX=Math.min(...state.beads.map(b=>b.x)),minY=Math.min(...state.beads.map(b=>b.y));
+    const maxX=Math.max(...state.beads.map(b=>b.x+2)),maxY=Math.max(...state.beads.map(b=>b.y+2));
+    const startX=Math.max(0,minX-pad),startY=Math.max(0,minY-pad);
+    const endX=Math.min(state.width*2,maxX+pad),endY=Math.min(state.height*2,maxY+pad);
+    const newW=Math.max(4,Math.ceil((endX-startX)/2)),newH=Math.max(4,Math.ceil((endY-startY)/2));
+    const shiftX=-startX,shiftY=-startY;
+    if(newW===state.width&&newH===state.height&&shiftX===0&&shiftY===0)return flashStatus(t('trimNoChange'));
+    const candidate=state.beads.map(b=>({...b,x:b.x+shiftX,y:b.y+shiftY}));
+    if(candidate.some(b=>b.x<0||b.y<0||b.x>newW*2-2||b.y>newH*2-2))return;
+    pushHistory();state.beads=candidate;state.width=newW;state.height=newH;finishCanvasStructureEdit(t('trimDone',{w:newW,h:newH}));
   }
 
   function sanitizeBaseName(name,fallback='block-bead'){
@@ -923,7 +1059,7 @@
   }
   function closeJsonNameModal(){$('jsonNameModal').classList.remove('open')}
   function exportJSON(){
-    const project={app:'block-bead-editor',version:APP_VERSION,canvas:{width:state.width,height:state.height},settings:{snap:state.snap,beadPx:state.beadPx},palette:[...new Set([...DEFAULT_PALETTE,...state.recentColors,...state.beads.map(b=>b.color)])],beads:state.beads.map(({id,x,y,color})=>({id,x,y,color}))};
+    const project={app:'block-bead-editor',version:APP_VERSION,canvas:{width:state.width,height:state.height},settings:{snap:state.snap,beadPx:state.beadPx,showCenterLine:state.showCenterLine,showMarkers:state.showMarkers,centerCoordinates:state.centerCoordinates,markerInterval:state.markerInterval},palette:[...new Set([...DEFAULT_PALETTE,...state.recentColors,...state.beads.map(b=>b.color)])],beads:state.beads.map(({id,x,y,color})=>({id,x,y,color}))};
     const name=sanitizeBaseName($('jsonFileName').value,`block-bead-${state.width}x${state.height}`)+'.json';
     downloadBlob(new Blob([JSON.stringify(project,null,2)],{type:'application/json'}),name);
     closeJsonNameModal();
@@ -935,7 +1071,8 @@
       for(let i=0;i<beads.length;i++)for(let j=i+1;j<beads.length;j++)if(Math.abs(beads[i].x-beads[j].x)<2&&Math.abs(beads[i].y-beads[j].y)<2)throw new Error('Overlapping beads');
       state.width=w;state.height=h;state.beads=beads;state.nextId=maxId+1;state.undo=[];state.redo=[];state.selection=null;state.selectionIds.clear();state.isSelecting=false;
       if(p.settings?.snap==='whole'||p.settings?.snap==='half'){state.snap=p.settings.snap;$('snapMode').value=state.snap}if([16,24,32].includes(Number(p.settings?.beadPx))){state.beadPx=Number(p.settings.beadPx);$('zoomMode').value=String(state.beadPx)}
-      $('canvasW').value=w;$('canvasH').value=h;resizeCanvas();updateStats();syncHistoryButtons();syncSelectionActions();flashStatus(t('jsonLoaded'));
+      if(typeof p.settings?.showCenterLine==='boolean')state.showCenterLine=p.settings.showCenterLine;if(typeof p.settings?.showMarkers==='boolean')state.showMarkers=p.settings.showMarkers;if(typeof p.settings?.centerCoordinates==='boolean')state.centerCoordinates=p.settings.centerCoordinates;if([5,10,20].includes(Number(p.settings?.markerInterval)))state.markerInterval=Number(p.settings.markerInterval);
+      $('showCenterLine').checked=state.showCenterLine;$('showMarkers').checked=state.showMarkers;$('centerCoordBtn').classList.toggle('active',state.centerCoordinates);$('markerInterval').value=String(state.markerInterval);saveGuideSettings();syncCanvasInputs();resizeCanvas();updateStats();syncHistoryButtons();syncSelectionActions();flashStatus(t('jsonLoaded'));
     }catch(err){alert(t('jsonLoadFail',{msg:err.message}))}};r.readAsText(file,'utf-8');
   }
 
@@ -1043,7 +1180,12 @@
   function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0)}
 
   document.querySelectorAll('#toolGroup button').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
-  $('newBtn').onclick=newBoard;$('snapMode').onchange=e=>{state.snap=e.target.value;render()};$('zoomMode').onchange=e=>{state.beadPx=Number(e.target.value);resizeCanvas()};
+  $('newBtn').onclick=applyCanvasSize;$('snapMode').onchange=e=>{state.snap=e.target.value;render()};$('zoomMode').onchange=e=>{state.beadPx=Number(e.target.value);resizeCanvas()};
+  $('trimBtn').onclick=trimCanvas;
+  $('showCenterLine').onchange=e=>{state.showCenterLine=e.target.checked;saveGuideSettings();render()};
+  $('showMarkers').onchange=e=>{state.showMarkers=e.target.checked;saveGuideSettings();render()};
+  $('centerCoordBtn').onclick=()=>{state.centerCoordinates=!state.centerCoordinates;$('centerCoordBtn').classList.toggle('active',state.centerCoordinates);saveGuideSettings();render()};
+  $('markerInterval').onchange=e=>{state.markerInterval=Number(e.target.value)||5;saveGuideSettings();render()};
   $('undoBtn').onclick=()=>applyHistory(state.undo,state.redo);$('redoBtn').onclick=()=>applyHistory(state.redo,state.undo);
   $('saveJsonBtn').onclick=openJsonNameModal;$('closeJsonNameModal').onclick=closeJsonNameModal;$('cancelJsonName').onclick=closeJsonNameModal;$('confirmJsonName').onclick=exportJSON;$('jsonFileName').addEventListener('keydown',e=>{if(e.key==='Enter')exportJSON()});$('loadJsonBtn').onclick=()=>$('jsonFile').click();$('jsonFile').onchange=e=>{const f=e.target.files[0];if(f)loadJSON(f);e.target.value=''};
   $('exportPngBtn').onclick=openExportModal;$('closeExportModal').onclick=closeExportModal;$('cancelExport').onclick=closeExportModal;$('confirmExport').onclick=exportPNG;
@@ -1127,7 +1269,7 @@
   });
 
   $('themeMode').value=state.theme;$('languageMode').value=state.language;
-  document.title=`${I18N['zh-Hant'].appName} v${APP_VERSION}`; $('versionBadge').textContent=`v${APP_VERSION}`; state.version=APP_VERSION; loadRecentColors(); buildPalette();applyTheme();applyLanguage();applyShortcutTitles();resizeCanvas();updateStats();syncHistoryButtons();syncSelectionActions();
+  document.title=`${I18N['zh-Hant'].appName} v${APP_VERSION}`; $('versionBadge').textContent=`v${APP_VERSION}`; state.version=APP_VERSION; loadRecentColors(); buildPalette();applyTheme();applyLanguage();applyShortcutTitles();$('showCenterLine').checked=state.showCenterLine;$('showMarkers').checked=state.showMarkers;$('centerCoordBtn').classList.toggle('active',state.centerCoordinates);$('markerInterval').value=String(state.markerInterval);syncCanvasInputs();resizeCanvas();updateStats();syncHistoryButtons();syncSelectionActions();
 })();
 </script>
 </body>
