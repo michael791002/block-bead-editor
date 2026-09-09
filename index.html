@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>積木拼豆編輯器 v13</title>
+<title>積木拼豆編輯器 v14</title>
 <style>
   :root{
     --app-bg:#f5f7fa;
@@ -42,6 +42,7 @@
     --shadow:0 8px 28px rgba(0,0,0,.34);
   }
   *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   body{margin:0;font-family:Inter,"Noto Sans TC","Microsoft JhengHei",sans-serif;background:var(--app-bg);color:var(--text)}
   button,input,select{font:inherit}
   button{cursor:pointer}
@@ -98,7 +99,7 @@
   .icon-btn{width:34px;height:34px;padding:0;display:grid;place-items:center}
   .modal-body{padding:16px;display:grid;gap:14px}
   .form-row{display:grid;grid-template-columns:145px 1fr;gap:12px;align-items:center}
-  .form-row select,.form-row input[type="number"]{width:100%}
+  .form-row select,.form-row input[type="number"],.form-row input[type="text"]{width:100%}
   .check-row{display:flex;align-items:center;gap:9px}
   .modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:14px 16px;border-top:1px solid var(--line)}
   .primary{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
@@ -127,7 +128,7 @@
     .group-history{grid-column:2/3;grid-row:1;border:0;padding:0;flex-wrap:nowrap}
     .group-history button{padding:6px 8px}
     .group-tools{grid-column:1/-1;display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;border:0!important;padding:0!important}
-    .group-tools button{min-width:0;padding:7px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .group-tools button{min-width:0;padding:7px 3px;white-space:nowrap;overflow:visible;text-overflow:clip;font-size:14px;line-height:1.25}
     .topbar-more{display:none;margin-top:6px;padding:7px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px}
     .topbar-more.open{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
     .topbar-more .group{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px;min-width:0}
@@ -192,6 +193,8 @@
     .recent-palette .swatch{flex:0 0 24px;width:24px;height:24px;border-radius:5px;min-height:24px}
     .color-row input[type="color"]{width:34px;height:34px}
     .color-row button{padding:6px 7px}
+    .group-tools{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+    .group-tools button{font-size:13px;padding:7px 1px;letter-spacing:-.02em}
     .workspace{padding:10px}
   }
 
@@ -323,6 +326,10 @@
     </div>
     <div class="modal-body">
       <div class="form-row">
+        <label for="exportFileName" data-i18n="fileName">檔案名稱</label>
+        <input id="exportFileName" type="text" value="block-bead" maxlength="80" autocomplete="off">
+      </div>
+      <div class="form-row">
         <label for="exportRange" data-i18n="exportRange">輸出範圍</label>
         <select id="exportRange">
           <option value="content" selected data-i18n="rangeContent">自動裁切到拼豆內容</option>
@@ -393,16 +400,36 @@
   </div>
 </div>
 
+<div id="jsonNameModal" class="modal-backdrop" role="dialog" aria-modal="true">
+  <div class="modal" style="width:min(420px,100%)">
+    <div class="modal-header">
+      <h2 data-i18n="jsonExportTitle">匯出 JSON</h2>
+      <button id="closeJsonNameModal" class="icon-btn" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label for="jsonFileName" data-i18n="fileName">檔案名稱</label>
+        <input id="jsonFileName" type="text" value="block-bead" maxlength="80" autocomplete="off">
+      </div>
+      <div class="hint" data-i18n="extensionAuto">副檔名會自動加入。</div>
+    </div>
+    <div class="modal-footer">
+      <button id="cancelJsonName" data-i18n="cancel">取消</button>
+      <button id="confirmJsonName" class="primary" data-i18n="download">下載</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const APP_VERSION = 13;
+  const APP_VERSION = 14;
   const canvas = $('board');
   const ctx = canvas.getContext('2d');
 
   const I18N = {
     'zh-Hant': {
-      appName:'積木拼豆編輯器', width:'寬', height:'高', createCanvas:'建立畫布',
+      appName:'積木拼豆編輯器', fileName:'檔案名稱', jsonExportTitle:'匯出 JSON', extensionAuto:'副檔名會自動加入。', download:'下載', width:'寬', height:'高', createCanvas:'建立畫布',
       toolDraw:'✏️ 上色', toolErase:'🧽 擦除', toolFill:'🪣 填滿', toolPick:'🎯 吸色', toolSelect:'⬚ 框選',
       snap:'吸附', snapHalf:'半格', snapWhole:'整格', zoom:'縮放', zoomSmall:'小', zoomMedium:'中', zoomLarge:'大',
       exportJson:'💾 匯出 JSON', loadJson:'📂 載入 JSON', exportPng:'🖼️ 匯出 PNG',
@@ -420,7 +447,7 @@
       noBeadsExport:'目前沒有拼豆可以輸出。', fillTooLarge:'這次填滿會新增 {n} 顆拼豆，是否繼續？'
     },
     en: {
-      appName:'Block Bead Editor', width:'W', height:'H', createCanvas:'New Canvas',
+      appName:'Block Bead Editor', fileName:'File name', jsonExportTitle:'Export JSON', extensionAuto:'The file extension is added automatically.', download:'Download', width:'W', height:'H', createCanvas:'New Canvas',
       toolDraw:'✏️ Draw', toolErase:'🧽 Erase', toolFill:'🪣 Fill', toolPick:'🎯 Pick', toolSelect:'⬚ Select',
       snap:'Snap', snapHalf:'Half', snapWhole:'Whole', zoom:'Zoom', zoomSmall:'Small', zoomMedium:'Medium', zoomLarge:'Large',
       exportJson:'💾 Export JSON', loadJson:'📂 Load JSON', exportPng:'🖼️ Export PNG',
@@ -883,9 +910,23 @@
     if(state.beads.length&&!confirm(t('newConfirm')))return;state.width=w;state.height=h;state.beads=[];state.nextId=1;state.undo=[];state.redo=[];state.selection=null;state.selectionIds.clear();state.isSelecting=false;resizeCanvas();updateStats();syncHistoryButtons();syncSelectionActions();
   }
 
+  function sanitizeBaseName(name,fallback='block-bead'){
+    let v=String(name||'').trim().replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').replace(/\.+$/,'');
+    v=v.replace(/\.(json|png)$/i,'').trim();
+    return v||fallback;
+  }
+
+  function openJsonNameModal(){
+    $('jsonFileName').value=`block-bead-${state.width}x${state.height}`;
+    $('jsonNameModal').classList.add('open');
+    setTimeout(()=>{$('jsonFileName').focus();$('jsonFileName').select()},50);
+  }
+  function closeJsonNameModal(){$('jsonNameModal').classList.remove('open')}
   function exportJSON(){
     const project={app:'block-bead-editor',version:APP_VERSION,canvas:{width:state.width,height:state.height},settings:{snap:state.snap,beadPx:state.beadPx},palette:[...new Set([...DEFAULT_PALETTE,...state.recentColors,...state.beads.map(b=>b.color)])],beads:state.beads.map(({id,x,y,color})=>({id,x,y,color}))};
-    downloadBlob(new Blob([JSON.stringify(project,null,2)],{type:'application/json'}),`block-bead-${state.width}x${state.height}.json`);
+    const name=sanitizeBaseName($('jsonFileName').value,`block-bead-${state.width}x${state.height}`)+'.json';
+    downloadBlob(new Blob([JSON.stringify(project,null,2)],{type:'application/json'}),name);
+    closeJsonNameModal();
   }
 
   function loadJSON(file){
@@ -898,7 +939,7 @@
     }catch(err){alert(t('jsonLoadFail',{msg:err.message}))}};r.readAsText(file,'utf-8');
   }
 
-  function openExportModal(){if(!state.beads.length){alert(t('noBeadsExport'));return}$('exportModal').classList.add('open')}
+  function openExportModal(){if(!state.beads.length){alert(t('noBeadsExport'));return}$('exportFileName').value=`block-bead-${state.beads.length}-beads`;$('exportModal').classList.add('open')}
   function closeExportModal(){$('exportModal').classList.remove('open')}
 
   function getColorCounts(){
@@ -995,7 +1036,8 @@
       oc.restore();
     }
 
-    out.toBlob(blob=>downloadBlob(blob,`block-bead-${state.beads.length}-beads.png`),'image/png');closeExportModal();
+    const pngName=sanitizeBaseName($('exportFileName').value,`block-bead-${state.beads.length}-beads`)+'.png';
+    out.toBlob(blob=>downloadBlob(blob,pngName),'image/png');closeExportModal();
   }
 
   function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0)}
@@ -1003,7 +1045,7 @@
   document.querySelectorAll('#toolGroup button').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
   $('newBtn').onclick=newBoard;$('snapMode').onchange=e=>{state.snap=e.target.value;render()};$('zoomMode').onchange=e=>{state.beadPx=Number(e.target.value);resizeCanvas()};
   $('undoBtn').onclick=()=>applyHistory(state.undo,state.redo);$('redoBtn').onclick=()=>applyHistory(state.redo,state.undo);
-  $('saveJsonBtn').onclick=exportJSON;$('loadJsonBtn').onclick=()=>$('jsonFile').click();$('jsonFile').onchange=e=>{const f=e.target.files[0];if(f)loadJSON(f);e.target.value=''};
+  $('saveJsonBtn').onclick=openJsonNameModal;$('closeJsonNameModal').onclick=closeJsonNameModal;$('cancelJsonName').onclick=closeJsonNameModal;$('confirmJsonName').onclick=exportJSON;$('jsonFileName').addEventListener('keydown',e=>{if(e.key==='Enter')exportJSON()});$('loadJsonBtn').onclick=()=>$('jsonFile').click();$('jsonFile').onchange=e=>{const f=e.target.files[0];if(f)loadJSON(f);e.target.value=''};
   $('exportPngBtn').onclick=openExportModal;$('closeExportModal').onclick=closeExportModal;$('cancelExport').onclick=closeExportModal;$('confirmExport').onclick=exportPNG;
   $('exportRange').onchange=e=>$('paddingRow').classList.toggle('hidden',e.target.value==='canvas');
   $('exportBackground').onchange=e=>$('exportBgColor').classList.toggle('hidden',e.target.value!=='custom');
