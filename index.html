@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>積木拼豆編輯器 v14</title>
+<title>積木拼豆編輯器 v15</title>
 <style>
   :root{
     --app-bg:#f5f7fa;
@@ -120,6 +120,7 @@
   .export-preview-note{font-size:12px;color:var(--muted);line-height:1.45}
 
   @media (max-width:900px){
+    .statusbar{display:none}
     .app{grid-template-rows:auto 1fr auto}
     .topbar{padding:7px 8px}
     .topbar-primary{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center}
@@ -218,6 +219,42 @@
     .group-canvas-edit button{padding:7px 5px}
   }
 
+
+  /* Settings + Help dialogs */
+  .utility-buttons{display:flex;gap:6px;align-items:center;margin-left:auto}
+  .utility-buttons button{white-space:nowrap}
+  .settings-section{display:grid;gap:10px;padding:2px 0}
+  .settings-section + .settings-section{border-top:1px solid var(--line);padding-top:14px;margin-top:2px}
+  .settings-section h3{margin:0;font-size:14px}
+  .settings-grid{display:grid;grid-template-columns:145px 1fr;gap:10px 12px;align-items:center}
+  .help-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .help-card{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel-2)}
+  .help-card h3{margin:0 0 8px;font-size:14px}
+  .help-card ul{margin:0;padding-left:18px;line-height:1.7;font-size:13px}
+  .shortcut-table{width:100%;border-collapse:collapse;font-size:13px}
+  .shortcut-table td{padding:5px 0;border-bottom:1px solid var(--line)}
+  .shortcut-table td:last-child{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  @media (max-width:900px){
+    /* Keep Settings / Help on the same top row as More in narrow layouts. */
+    .topbar-primary{grid-template-columns:minmax(0,1fr) auto auto!important}
+    .brand{grid-column:1/2!important;grid-row:1!important}
+    .topbar-more-toggle{grid-column:2/3!important;grid-row:1!important}
+    .utility-buttons{grid-column:3/4;grid-row:1;margin-left:0;justify-content:flex-end;align-self:center}
+    .utility-buttons button{padding:6px 8px}
+    .group-tools{grid-column:1/-1!important;grid-row:2!important}
+    .group-history{grid-column:1/-1!important;grid-row:3!important;justify-self:start}
+  }
+  @media (max-width:560px){
+    .topbar-primary{grid-template-columns:minmax(0,1fr) auto auto!important}
+    .topbar-more-toggle{grid-column:2/3!important;grid-row:1!important}
+    .utility-buttons{grid-column:3/4;grid-row:1;gap:4px}
+    .utility-buttons button{padding:6px 7px;font-size:12px}
+    .group-history{grid-column:1/-1!important;grid-row:3!important}
+    .group-tools{grid-row:2!important}
+    .settings-grid{grid-template-columns:1fr;gap:5px}
+    .help-grid{grid-template-columns:1fr}
+  }
+
 </style>
 </head>
 <body data-theme="light">
@@ -235,6 +272,10 @@
       <div class="group group-history">
         <button id="undoBtn">↶ Undo</button>
         <button id="redoBtn">↷ Redo</button>
+      </div>
+      <div class="utility-buttons">
+        <button id="settingsBtn" type="button" data-i18n="settingsBtn">⚙ 設定</button>
+        <button id="helpBtn" type="button" data-i18n="helpBtn">? Help</button>
       </div>
       <button id="moreToolsBtn" class="topbar-more-toggle"><span data-i18n="moreTools">其他設定</span> ▾</button>
     </div>
@@ -266,35 +307,11 @@
         </label>
         <button id="trimBtn" data-i18n="trimCanvas">✂ Trim</button>
       </div>
-      <div class="group group-guides">
-        <span class="guide-title" data-i18n="canvasGuides">畫布輔助</span>
-        <label class="check-inline"><input id="showCenterLine" type="checkbox"> <span data-i18n="showCenterLine">中心線</span></label>
-        <label class="check-inline"><input id="showMarkers" type="checkbox"> <span data-i18n="showMarkers">N 格標記</span></label>
-        <button id="centerCoordBtn" type="button" data-i18n="centerCoordinates">中心座標</button>
-        <label class="mini-label"><span data-i18n="markerEvery">每</span>
-          <select id="markerInterval"><option value="5" selected>5</option><option value="10">10</option><option value="20">20</option></select>
-          <span data-i18n="beadsUnit">格</span>
-        </label>
-      </div>
       <div class="group group-files">
         <button id="saveJsonBtn" data-i18n="exportJson">💾 匯出 JSON</button>
         <button id="loadJsonBtn" data-i18n="loadJson">📂 載入 JSON</button>
         <input id="jsonFile" class="file-input" type="file" accept="application/json,.json">
         <button id="exportPngBtn" data-i18n="exportPng">🖼️ 匯出 PNG</button>
-      </div>
-      <div class="group group-settings">
-        <label><span data-i18n="theme">主題</span>
-          <select id="themeMode">
-            <option value="light" data-i18n="themeLight">淺色</option>
-            <option value="dark" data-i18n="themeDark">暗色</option>
-          </select>
-        </label>
-        <label><span data-i18n="language">語言</span>
-          <select id="languageMode">
-            <option value="zh-Hant">繁中</option>
-            <option value="en">English</option>
-          </select>
-        </label>
       </div>
     </div>
   </header>
@@ -352,6 +369,110 @@
     <div id="statusLeft" data-i18n="ready">就緒</div>
     <div id="statusRight"></div>
   </footer>
+</div>
+
+<div id="settingsModal" class="modal-backdrop" role="dialog" aria-modal="true">
+  <div class="modal" style="width:min(560px,100%)">
+    <div class="modal-header">
+      <h2 data-i18n="settingsTitle">設定</h2>
+      <button id="closeSettingsModal" class="icon-btn" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-section">
+        <h3 data-i18n="canvasGuides">畫布輔助</h3>
+        <div class="settings-grid">
+          <label class="check-row"><input id="showCenterLine" type="checkbox"> <span data-i18n="showCenterLine">顯示中心線</span></label><span></span>
+          <label class="check-row"><input id="showMarkers" type="checkbox"> <span data-i18n="showMarkers">顯示 N 格標記</span></label><span></span>
+          <span data-i18n="markerEvery">每</span>
+          <select id="markerInterval"><option value="5" selected>5</option><option value="10">10</option><option value="20">20</option></select>
+          <span data-i18n="coordinateMode">座標模式</span>
+          <button id="centerCoordBtn" type="button" data-i18n="centerCoordinates">中心座標</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3 data-i18n="appearance">外觀</h3>
+        <div class="settings-grid">
+          <span data-i18n="theme">主題</span>
+          <select id="themeMode">
+            <option value="light" data-i18n="themeLight">淺色</option>
+            <option value="dark" data-i18n="themeDark">暗色</option>
+          </select>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3 data-i18n="language">語言</h3>
+        <div class="settings-grid">
+          <span data-i18n="language">語言</span>
+          <select id="languageMode">
+            <option value="zh-Hant">繁中</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="closeSettingsFooter" class="primary" data-i18n="close">關閉</button>
+    </div>
+  </div>
+</div>
+
+<div id="helpModal" class="modal-backdrop" role="dialog" aria-modal="true">
+  <div class="modal" style="width:min(760px,100%)">
+    <div class="modal-header">
+      <h2 data-i18n="helpTitle">操作說明</h2>
+      <button id="closeHelpModal" class="icon-btn" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="help-grid">
+        <div class="help-card">
+          <h3 data-i18n="basicControls">基本操作</h3>
+          <ul>
+            <li data-i18n="helpDraw">左鍵：依目前工具上色／擦除／填滿／吸色／框選</li>
+            <li data-i18n="helpRightErase">上色或填滿模式時，右鍵可快速擦除</li>
+            <li data-i18n="helpSelectDrag">框選後可直接拖曳選取內容移動</li>
+            <li data-i18n="helpClickOutside">在選框外點擊可取消選取</li>
+            <li data-i18n="helpHover">滑鼠移到工具按鈕上可查看快捷鍵</li>
+          </ul>
+        </div>
+        <div class="help-card">
+          <h3 data-i18n="toolShortcuts">工具快捷鍵</h3>
+          <table class="shortcut-table">
+            <tr><td data-i18n="helpDrawTool">上色</td><td>D</td></tr>
+            <tr><td data-i18n="helpEraseTool">擦除</td><td>E</td></tr>
+            <tr><td data-i18n="helpFillTool">填滿</td><td>F</td></tr>
+            <tr><td data-i18n="helpPickTool">吸色</td><td>I</td></tr>
+            <tr><td data-i18n="helpSelectTool">框選</td><td>S</td></tr>
+            <tr><td data-i18n="helpWholeSnap">整格吸附</td><td>1</td></tr>
+            <tr><td data-i18n="helpHalfSnap">半格吸附</td><td>2</td></tr>
+            <tr><td>Undo / Redo</td><td>Ctrl+Z / Ctrl+Y</td></tr>
+          </table>
+        </div>
+        <div class="help-card">
+          <h3 data-i18n="selectionShortcuts">框選快捷鍵</h3>
+          <table class="shortcut-table">
+            <tr><td data-i18n="helpMoveHalf">移動 0.5 格</td><td>← ↑ → ↓</td></tr>
+            <tr><td data-i18n="helpMoveWhole">移動 1 格</td><td>Shift + 方向鍵</td></tr>
+            <tr><td data-i18n="helpDuplicate">複製選取</td><td>Ctrl+D</td></tr>
+            <tr><td data-i18n="helpDelete">刪除選取</td><td>Delete</td></tr>
+            <tr><td data-i18n="helpFlipH">水平翻轉</td><td>H</td></tr>
+            <tr><td data-i18n="helpFlipV">垂直翻轉</td><td>V</td></tr>
+            <tr><td data-i18n="helpClearSelection">取消選取</td><td>Esc</td></tr>
+          </table>
+        </div>
+        <div class="help-card">
+          <h3 data-i18n="mobileControls">手機 / 觸控</h3>
+          <ul>
+            <li data-i18n="helpMobileTap">點擊工具與色盤即可操作</li>
+            <li data-i18n="helpMobileDrag">上色、擦除與框選皆支援拖曳</li>
+            <li data-i18n="helpMobileKeyboard">若裝置有外接鍵盤，也可使用上方快捷鍵</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="closeHelpFooter" class="primary" data-i18n="close">關閉</button>
+    </div>
+  </div>
 </div>
 
 <div id="exportModal" class="modal-backdrop" role="dialog" aria-modal="true">
@@ -459,7 +580,7 @@
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const APP_VERSION = 14;
+  const APP_VERSION = 15;
   const canvas = $('board');
   const ctx = canvas.getContext('2d');
 
@@ -469,7 +590,7 @@
       toolDraw:'✏️ 上色', toolErase:'🧽 擦除', toolFill:'🪣 填滿', toolPick:'🎯 吸色', toolSelect:'⬚ 框選',
       snap:'吸附', snapHalf:'半格', snapWhole:'整格', zoom:'縮放', zoomSmall:'小', zoomMedium:'中', zoomLarge:'大',
       exportJson:'💾 匯出 JSON', loadJson:'📂 載入 JSON', exportPng:'🖼️ 匯出 PNG',
-      theme:'主題', themeLight:'淺色', themeDark:'暗色', language:'語言', moreTools:'其他設定',
+      theme:'主題', themeLight:'淺色', themeDark:'暗色', language:'語言', moreTools:'其他設定', settingsBtn:'⚙ 設定', helpBtn:'? Help', settingsTitle:'設定', helpTitle:'操作說明', close:'關閉', appearance:'外觀', coordinateMode:'座標模式', basicControls:'基本操作', toolShortcuts:'工具快捷鍵', selectionShortcuts:'框選快捷鍵', mobileControls:'手機 / 觸控', helpDraw:'左鍵：依目前工具上色／擦除／填滿／吸色／框選', helpRightErase:'上色或填滿模式時，右鍵可快速擦除', helpSelectDrag:'框選後可直接拖曳選取內容移動', helpClickOutside:'在選框外點擊可取消選取', helpHover:'滑鼠移到工具按鈕上可查看快捷鍵', helpDrawTool:'上色', helpEraseTool:'擦除', helpFillTool:'填滿', helpPickTool:'吸色', helpSelectTool:'框選', helpWholeSnap:'整格吸附', helpHalfSnap:'半格吸附', helpMoveHalf:'移動 0.5 格', helpMoveWhole:'移動 1 格', helpDuplicate:'複製選取', helpDelete:'刪除選取', helpFlipH:'水平翻轉', helpFlipV:'垂直翻轉', helpClearSelection:'取消選取', helpMobileTap:'點擊工具與色盤即可操作', helpMobileDrag:'上色、擦除與框選皆支援拖曳', helpMobileKeyboard:'若裝置有外接鍵盤，也可使用上方快捷鍵',
       canvasEdit:'畫布編輯', row:'列', column:'欄', insertRow:'＋ 插入列', deleteRow:'－ 刪除列', insertCol:'＋ 插入欄', deleteCol:'－ 刪除欄', trimPadding:'Trim 留白', trimCanvas:'✂ Trim', canvasGuides:'畫布輔助', showCenterLine:'顯示中心線', showMarkers:'顯示 N 格標記', centerCoordinates:'中心座標', markerEvery:'每', beadsUnit:'格',
       colors:'顏色', useCustom:'使用自訂色', recentColors:'最近使用', selectionActions:'框選操作', notSelected:'尚未選取', selectedCount:'已選取 {n} 顆',
       copy:'複製', delete:'刪除', flipH:'水平翻轉', flipV:'垂直翻轉', clearSelection:'取消選取', statistics:'統計',
@@ -488,7 +609,7 @@
       toolDraw:'✏️ Draw', toolErase:'🧽 Erase', toolFill:'🪣 Fill', toolPick:'🎯 Pick', toolSelect:'⬚ Select',
       snap:'Snap', snapHalf:'Half', snapWhole:'Whole', zoom:'Zoom', zoomSmall:'Small', zoomMedium:'Medium', zoomLarge:'Large',
       exportJson:'💾 Export JSON', loadJson:'📂 Load JSON', exportPng:'🖼️ Export PNG',
-      theme:'Theme', themeLight:'Light', themeDark:'Dark', language:'Language', moreTools:'More',
+      theme:'Theme', themeLight:'Light', themeDark:'Dark', language:'Language', moreTools:'More', settingsBtn:'⚙ Settings', helpBtn:'? Help', settingsTitle:'Settings', helpTitle:'Help', close:'Close', appearance:'Appearance', coordinateMode:'Coordinate mode', basicControls:'Basic controls', toolShortcuts:'Tool shortcuts', selectionShortcuts:'Selection shortcuts', mobileControls:'Mobile / touch', helpDraw:'Left click: use the current draw / erase / fill / pick / select tool', helpRightErase:'Right click quickly erases while using Draw or Fill', helpSelectDrag:'Drag inside a selection to move it', helpClickOutside:'Click outside the selection to clear it', helpHover:'Hover tool buttons to see their shortcuts', helpDrawTool:'Draw', helpEraseTool:'Erase', helpFillTool:'Fill', helpPickTool:'Pick', helpSelectTool:'Select', helpWholeSnap:'Whole-grid snap', helpHalfSnap:'Half-grid snap', helpMoveHalf:'Move 0.5 cell', helpMoveWhole:'Move 1 cell', helpDuplicate:'Duplicate selection', helpDelete:'Delete selection', helpFlipH:'Flip horizontally', helpFlipV:'Flip vertically', helpClearSelection:'Clear selection', helpMobileTap:'Tap tools and colors to operate', helpMobileDrag:'Drawing, erasing and selection support dragging', helpMobileKeyboard:'If your device has an external keyboard, the shortcuts above can also be used',
       canvasEdit:'Canvas edit', row:'Row', column:'Column', insertRow:'+ Insert row', deleteRow:'- Delete row', insertCol:'+ Insert column', deleteCol:'- Delete column', trimPadding:'Trim padding', trimCanvas:'✂ Trim', canvasGuides:'Guides', showCenterLine:'Center line', showMarkers:'Every N markers', centerCoordinates:'Center coordinates', markerEvery:'Every', beadsUnit:'cells',
       colors:'Colors', useCustom:'Use custom', recentColors:'Recent colors', selectionActions:'Selection', notSelected:'No selection', selectedCount:'{n} selected',
       copy:'Copy', delete:'Delete', flipH:'Flip H', flipV:'Flip V', clearSelection:'Clear', statistics:'Statistics',
@@ -543,7 +664,7 @@
   ];
 
   const state = {
-    version:11, width:30, height:30, beadPx:24, tool:'draw', snap:'whole', color:'#ef4444',
+    version:15, width:30, height:30, beadPx:24, tool:'draw', snap:'whole', color:'#ef4444',
     beads:[], nextId:1, undo:[], redo:[], pointerDown:false, dragChanged:false, rightErase:false,
     selection:null, selectionIds:new Set(), selectStart:null, hover:null, isSelecting:false,
     selectionDragging:false, dragStartSnap:null, dragDelta:{x:0,y:0}, dragValid:true,
@@ -577,6 +698,18 @@
     $('themeMode').value=state.theme;
     localStorage.setItem('beadEditorTheme',state.theme);
     render();
+  }
+
+
+  function openModal(id){ $(id).classList.add('open'); }
+  function closeModal(id){ $(id).classList.remove('open'); }
+  function syncSettingsUI(){
+    $('showCenterLine').checked=state.showCenterLine;
+    $('showMarkers').checked=state.showMarkers;
+    $('markerInterval').value=String(state.markerInterval);
+    $('centerCoordBtn').classList.toggle('active',state.centerCoordinates);
+    $('themeMode').value=state.theme;
+    $('languageMode').value=state.language;
   }
 
   function cloneBeads(){ return state.beads.map(b=>({...b})); }
@@ -1200,6 +1333,16 @@
     const open=$('topbarMore').classList.toggle('open');
     $('moreToolsBtn').setAttribute('aria-expanded',String(open));
   };
+
+  // Settings / Help dialogs
+  $('settingsBtn').onclick=()=>{ syncSettingsUI(); openModal('settingsModal'); };
+  $('helpBtn').onclick=()=>openModal('helpModal');
+  $('closeSettingsModal').onclick=()=>closeModal('settingsModal');
+  $('closeSettingsFooter').onclick=()=>closeModal('settingsModal');
+  $('closeHelpModal').onclick=()=>closeModal('helpModal');
+  $('closeHelpFooter').onclick=()=>closeModal('helpModal');
+  $('settingsModal').addEventListener('pointerdown',e=>{if(e.target===$('settingsModal'))closeModal('settingsModal')});
+  $('helpModal').addEventListener('pointerdown',e=>{if(e.target===$('helpModal'))closeModal('helpModal')});
   document.querySelectorAll('#mobilePanelTabs button').forEach(btn=>btn.onclick=()=>{
     const panel=btn.dataset.mobilePanel;
     document.querySelectorAll('#mobilePanelTabs button').forEach(b=>b.classList.toggle('active',b===btn));
@@ -1228,7 +1371,10 @@
 
     // Escape should always be available for modal / selection cleanup.
     if(key==='Escape'){
+      if($('settingsModal').classList.contains('open')){e.preventDefault();closeModal('settingsModal');return;}
+      if($('helpModal').classList.contains('open')){e.preventDefault();closeModal('helpModal');return;}
       if($('exportModal').classList.contains('open')){e.preventDefault();closeExportModal();return;}
+      if($('jsonNameModal').classList.contains('open')){e.preventDefault();closeJsonNameModal();return;}
       if(state.selectionIds.size||state.selection){
         e.preventDefault();state.selection=null;state.selectionIds.clear();syncSelectionActions();render();return;
       }
@@ -1236,6 +1382,8 @@
 
     // Do not fire editor shortcuts while typing or choosing values.
     if(isTypingTarget(e.target)) return;
+
+    if(key==='?' || (key==='/' && e.shiftKey)){e.preventDefault();openModal('helpModal');return;}
 
     if((e.ctrlKey||e.metaKey)&&lower==='z'){e.preventDefault();applyHistory(state.undo,state.redo);return;}
     if((e.ctrlKey||e.metaKey)&&lower==='y'){e.preventDefault();applyHistory(state.redo,state.undo);return;}
