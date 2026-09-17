@@ -602,7 +602,7 @@
       cancel:'取消', exportImage:'匯出圖片', newConfirm:'建立新畫布會清除目前內容，確定嗎？', resizeCropConfirm:'縮小畫布會刪除範圍外的 {count} 顆拼豆，確定套用嗎？', resizeDone:'畫布尺寸已調整為 {w} × {h}。',
       outOfBounds:'移動後會超出畫布', overlapMove:'移動位置與其他拼豆重疊', overlapFlip:'翻轉後會與其他拼豆重疊',
       noCopySpace:'附近沒有足夠空間可放置複製內容', jsonLoaded:'JSON 載入完成', jsonLoadFail:'無法載入 JSON：{msg}',
-      noBeadsExport:'目前沒有拼豆可以輸出。', fillTooLarge:'這次填滿會新增 {n} 顆拼豆，是否繼續？', deleteRowConfirm:'第 {index} 列有 {count} 顆拼豆，刪除列時會一併刪除，確定嗎？', deleteColConfirm:'第 {index} 欄有 {count} 顆拼豆，刪除欄時會一併刪除，確定嗎？', minCanvasSize:'畫布寬高至少需保留 4 格。', maxCanvasSize:'畫布最大為 100 × 100。', deleteWouldOverlap:'刪除這一列／欄後，半格拼豆會互相重疊，因此無法執行。', trimNoChange:'目前已沒有可裁切的空白範圍。', trimDone:'已裁切畫布為 {w} × {h}。'
+      noBeadsExport:'目前沒有拼豆可以輸出。', fillTooLarge:'這次填滿會新增 {n} 顆拼豆，是否繼續？', deleteRowConfirm:'第 {index} 列有 {count} 顆拼豆，刪除列時會一併刪除，確定嗎？', deleteColConfirm:'第 {index} 欄有 {count} 顆拼豆，刪除欄時會一併刪除，確定嗎？', minCanvasSize:'畫布寬高至少需保留 4 格。', maxCanvasSize:'畫布最大為 100 × 100。', deleteWouldOverlap:'刪除這一列／欄後，半格拼豆會互相重疊，因此無法執行。', trimNoChange:'目前已沒有可裁切的空白範圍。', trimDone:'已裁切畫布為 {w} × {h}。', autosaveRestored:'已自動恢復上次未儲存的內容。'
     },
     en: {
       appName:'Block Bead Editor', fileName:'File name', jsonExportTitle:'Export JSON', extensionAuto:'The file extension is added automatically.', download:'Download', width:'W', height:'H', createCanvas:'New Canvas',
@@ -621,7 +621,7 @@
       cancel:'Cancel', exportImage:'Export Image', newConfirm:'Creating a new canvas will clear the current project. Continue?',
       outOfBounds:'Move would go outside the canvas', overlapMove:'Move would overlap other beads', overlapFlip:'Flip would overlap other beads',
       noCopySpace:'No nearby free space for the copied selection', jsonLoaded:'JSON loaded', jsonLoadFail:'Cannot load JSON: {msg}',
-      noBeadsExport:'There are no beads to export.', fillTooLarge:'This fill will add {n} beads. Continue?', deleteRowConfirm:'Row {index} contains {count} beads. Delete them with the row?', deleteColConfirm:'Column {index} contains {count} beads. Delete them with the column?', minCanvasSize:'Canvas width and height must remain at least 4 cells.', maxCanvasSize:'Maximum canvas size is 100 × 100.', deleteWouldOverlap:'Deleting this row/column would make half-grid beads overlap, so the operation was cancelled.', trimNoChange:'There is no blank border left to trim.', trimDone:'Canvas trimmed to {w} × {h}.'
+      noBeadsExport:'There are no beads to export.', fillTooLarge:'This fill will add {n} beads. Continue?', deleteRowConfirm:'Row {index} contains {count} beads. Delete them with the row?', deleteColConfirm:'Column {index} contains {count} beads. Delete them with the column?', minCanvasSize:'Canvas width and height must remain at least 4 cells.', maxCanvasSize:'Maximum canvas size is 100 × 100.', deleteWouldOverlap:'Deleting this row/column would make half-grid beads overlap, so the operation was cancelled.', trimNoChange:'There is no blank border left to trim.', trimDone:'Canvas trimmed to {w} × {h}.', autosaveRestored:'Recovered your last unsaved work automatically.'
     }
   };
 
@@ -711,6 +711,72 @@
     $('themeMode').value=state.theme;
     $('languageMode').value=state.language;
   }
+
+  const AUTOSAVE_KEY='blockBeadEditorAutosave';
+  let autosaveTimer=null;
+  let autosaveReady=false;
+  let autosaveWasRestored=false;
+
+  function makeAutosaveProject(){
+    return {
+      app:'block-bead-editor',
+      version:APP_VERSION,
+      savedAt:Date.now(),
+      canvas:{width:state.width,height:state.height},
+      settings:{
+        snap:state.snap,
+        beadPx:state.beadPx,
+        showCenterLine:state.showCenterLine,
+        showMarkers:state.showMarkers,
+        centerCoordinates:state.centerCoordinates,
+        markerInterval:state.markerInterval
+      },
+      beads:state.beads.map(({id,x,y,color})=>({id,x,y,color}))
+    };
+  }
+
+  function saveAutosaveNow(){
+    if(!autosaveReady)return;
+    try{localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(makeAutosaveProject()));}catch(err){console.warn('Autosave failed:',err)}
+  }
+
+  function scheduleAutosave(){
+    if(!autosaveReady)return;
+    clearTimeout(autosaveTimer);
+    autosaveTimer=setTimeout(saveAutosaveNow,450);
+  }
+
+  function restoreAutosave(){
+    try{
+      const raw=localStorage.getItem(AUTOSAVE_KEY);
+      if(!raw){autosaveReady=true;return false;}
+      const p=JSON.parse(raw);
+      const w=Number(p?.canvas?.width),h=Number(p?.canvas?.height);
+      if(!Number.isInteger(w)||!Number.isInteger(h)||w<4||h<4||w>100||h>100||!Array.isArray(p?.beads))throw new Error('Invalid autosave');
+      const beads=[];let maxId=0;
+      for(const item of p.beads){
+        const x=Number(item.x),y=Number(item.y),id=Number(item.id)||(++maxId),color=String(item.color||'').toLowerCase();
+        if(!Number.isInteger(x)||!Number.isInteger(y)||x<0||y<0||x>w*2-2||y>h*2-2||!/^#[0-9a-f]{6}$/i.test(color))throw new Error('Invalid autosave bead');
+        beads.push({id,x,y,color});maxId=Math.max(maxId,id);
+      }
+      for(let i=0;i<beads.length;i++)for(let j=i+1;j<beads.length;j++)if(Math.abs(beads[i].x-beads[j].x)<2&&Math.abs(beads[i].y-beads[j].y)<2)throw new Error('Overlapping autosave beads');
+      state.width=w;state.height=h;state.beads=beads;state.nextId=maxId+1;state.undo=[];state.redo=[];
+      if(p.settings?.snap==='whole'||p.settings?.snap==='half')state.snap=p.settings.snap;
+      if([16,24,32].includes(Number(p.settings?.beadPx)))state.beadPx=Number(p.settings.beadPx);
+      if(typeof p.settings?.showCenterLine==='boolean')state.showCenterLine=p.settings.showCenterLine;
+      if(typeof p.settings?.showMarkers==='boolean')state.showMarkers=p.settings.showMarkers;
+      if(typeof p.settings?.centerCoordinates==='boolean')state.centerCoordinates=p.settings.centerCoordinates;
+      if([5,10,20].includes(Number(p.settings?.markerInterval)))state.markerInterval=Number(p.settings.markerInterval);
+      autosaveWasRestored=true;
+    }catch(err){
+      console.warn('Autosave restore failed:',err);
+      try{localStorage.removeItem(AUTOSAVE_KEY)}catch(_){ }
+    }
+    autosaveReady=true;
+    return autosaveWasRestored;
+  }
+
+  window.addEventListener('beforeunload',saveAutosaveNow);
 
   function cloneBeads(){ return state.beads.map(b=>({...b})); }
   function cloneProjectState(){ return {width:state.width,height:state.height,beads:cloneBeads(),nextId:state.nextId}; }
@@ -1136,6 +1202,7 @@
     const counts=new Map();for(const b of state.beads)counts.set(b.color,(counts.get(b.color)||0)+1);const box=$('stats');box.innerHTML='';
     [...counts.entries()].sort((a,b)=>b[1]-a[1]).forEach(([color,n])=>{const row=document.createElement('div');row.className='stat-row';row.innerHTML=`<span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${color};border:1px solid #94a3b8;margin-right:6px;vertical-align:-1px"></i>${color}</span><strong>${n}</strong>`;box.appendChild(row)});
     if(!counts.size)box.innerHTML=`<div class="hint">${t('noBeads')}</div>`;$('statusRight').textContent=t('totalStats',{n:state.beads.length,c:counts.size});
+    scheduleAutosave();
   }
 
   function flashStatus(text){$('statusLeft').dataset.locked='1';$('statusLeft').textContent=text;setTimeout(()=>{$('statusLeft').dataset.locked='';$('statusLeft').textContent=t('ready')},1400)}
@@ -1313,7 +1380,7 @@
   function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0)}
 
   document.querySelectorAll('#toolGroup button').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
-  $('newBtn').onclick=applyCanvasSize;$('snapMode').onchange=e=>{state.snap=e.target.value;render()};$('zoomMode').onchange=e=>{state.beadPx=Number(e.target.value);resizeCanvas()};
+  $('newBtn').onclick=applyCanvasSize;$('snapMode').onchange=e=>{state.snap=e.target.value;render();scheduleAutosave()};$('zoomMode').onchange=e=>{state.beadPx=Number(e.target.value);resizeCanvas();scheduleAutosave()};
   $('trimBtn').onclick=trimCanvas;
   $('showCenterLine').onchange=e=>{state.showCenterLine=e.target.checked;saveGuideSettings();render()};
   $('showMarkers').onchange=e=>{state.showMarkers=e.target.checked;saveGuideSettings();render()};
@@ -1417,7 +1484,7 @@
   });
 
   $('themeMode').value=state.theme;$('languageMode').value=state.language;
-  document.title=`${I18N['zh-Hant'].appName} v${APP_VERSION}`; $('versionBadge').textContent=`v${APP_VERSION}`; state.version=APP_VERSION; loadRecentColors(); buildPalette();applyTheme();applyLanguage();applyShortcutTitles();$('showCenterLine').checked=state.showCenterLine;$('showMarkers').checked=state.showMarkers;$('centerCoordBtn').classList.toggle('active',state.centerCoordinates);$('markerInterval').value=String(state.markerInterval);syncCanvasInputs();resizeCanvas();updateStats();syncHistoryButtons();syncSelectionActions();
+  document.title=`${I18N['zh-Hant'].appName} v${APP_VERSION}`; $('versionBadge').textContent=`v${APP_VERSION}`; state.version=APP_VERSION; loadRecentColors(); restoreAutosave(); buildPalette();applyTheme();applyLanguage();applyShortcutTitles();$('snapMode').value=state.snap;$('zoomMode').value=String(state.beadPx);$('showCenterLine').checked=state.showCenterLine;$('showMarkers').checked=state.showMarkers;$('centerCoordBtn').classList.toggle('active',state.centerCoordinates);$('markerInterval').value=String(state.markerInterval);syncCanvasInputs();resizeCanvas();updateStats();syncHistoryButtons();syncSelectionActions();if(autosaveWasRestored)setTimeout(()=>flashStatus(t('autosaveRestored')),80);
 })();
 </script>
 </body>
