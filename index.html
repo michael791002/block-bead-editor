@@ -1011,6 +1011,13 @@
   });
 
   canvas.addEventListener('pointerdown',ev=>{
+    // Middle mouse button is reserved for the browser's native auto-scroll / canvas navigation.
+    // Do not capture it or let it fall through to drawing/erasing actions.
+    if(ev.button===1) return;
+
+    // Ignore any other non-left button except the explicit right-click quick erase below.
+    if(ev.button!==0 && ev.button!==2) return;
+
     canvas.setPointerCapture(ev.pointerId); state.pointerDown=true; state.dragChanged=false; state.rightErase=false;
     if(state.tool!=='select' && (state.selection || state.selectionIds.size)) clearSelection();
 
@@ -1018,6 +1025,9 @@
     if(ev.button===2 && (state.tool==='draw'||state.tool==='fill')){
       ev.preventDefault(); state.rightErase=true; pushHistory(); performPointerAction(ev); return;
     }
+
+    // Right click has no action in the other tools.
+    if(ev.button===2){ state.pointerDown=false; return; }
 
     if(state.tool==='select'){
       if(pointInsideSelection(ev)){
